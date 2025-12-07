@@ -1,4 +1,4 @@
-import { AppState } from "./types";
+import type { AppState } from "./types";
 
 const STORAGE_KEY = "panel-direccion-personal";
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Project, Task, TaskStatus } from "../types";
+import type { Project, Task, TaskStatus } from "@/types";
 
 interface TodayPageProps {
   initialDate: string;

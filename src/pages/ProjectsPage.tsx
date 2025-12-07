@@ -1,12 +1,6 @@
 import React, { useMemo, useState } from "react";
-import {
-  Area,
-  DailyLog,
-  NewProjectInput,
-  Project,
-} from "../types";
+import type { Area, DailyLog, NewProjectInput, Project } from "@/types";
 import { ProjectDailyLog } from "../components/ProjectDailyLog";
-
 interface ProjectsPageProps {
   projects: Project[];
   dailyLogs: DailyLog[];
