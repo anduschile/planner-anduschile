@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import type { DailyLog, Project } from "@/types";
+import type { DailyLog, Project } from "../types";
 
 interface ProjectDailyLogProps {
   project: Project;

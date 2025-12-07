@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import type { Area, DailyLog, NewProjectInput, Project } from "@/types";
+import type { Area, DailyLog, NewProjectInput, Project } from "../types";
 import { ProjectDailyLog } from "../components/ProjectDailyLog";
 interface ProjectsPageProps {
   projects: Project[];
@@ -47,10 +47,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     value: string
   ) => {
     const n = Number(value);
-    setForm((prev) => ({
-      ...prev,
-      [field]: isNaN(n) ? 1 : Math.min(5, Math.max(1, n)),
-    }));
+    setForm((prev: NewProjectInput) => ({
+  ...prev,
+  [field]: isNaN(n) ? 1 : Math.min(5, Math.max(1, n)),
+}));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -143,7 +143,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 className="w-full border rounded px-2 py-1"
                 value={form.name}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                  setForm((prev: NewProjectInput) => ({ ...prev, name: e.target.value }))
                 }
                 placeholder="Ej: Arte Brisa Patagonia, Latitud Sur..."
               />
@@ -157,7 +157,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 className="w-full border rounded px-2 py-1"
                 value={form.area}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, area: e.target.value as Area }))
+                  setForm((prev: NewProjectInput) => ({ ...prev, area: e.target.value as Area }))
                 }
               >
                 {areas.map((a) => (
@@ -176,7 +176,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 className="w-full border rounded px-2 py-1 min-h-[60px]"
                 value={form.objective}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, objective: e.target.value }))
+                  setForm((prev: NewProjectInput) => ({ ...prev, objective: e.target.value }))
                 }
                 placeholder="Ej: Llenar las cabañas al 60% promedio anual, etc."
               />
