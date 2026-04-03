@@ -1,78 +1,26 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./index.css";
-
-/* ============================
-   TIPOS BÁSICOS
-   ============================ */
-
-type Area = "Negocio" | "Personal" | "Salud" | "Familia" | "Otro";
-type ProjectStatus = "Idea" | "En marcha" | "Pausado" | "Cerrado";
-type TaskStatus = "Pendiente" | "En curso" | "Hecha";
-type ReviewType = "semanal" | "mensual";
-
-interface Project {
-  id: string;
-  name: string;
-  area: Area;
-  objective: string;
-  impact: number; // 1–5
-  urgency: number; // 1–5
-  effort: number; // 1–5
-  status: ProjectStatus;
-  createdAt: string; // ISO
-}
-
-interface Task {
-  id: string;
-  projectId?: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  isKey: boolean;
-  status: TaskStatus;
-}
-
-interface Idea {
-  id: string;
-  title: string;
-  description: string;
-  impact: number;
-  effort: number;
-  linkedProjectId?: string;
-  state: "Idea" | "A evaluar" | "Aprobada" | "Descartada";
-  createdAt: string;
-}
-
-interface DailyLog {
-  id: string;
-  projectId: string;
-  date: string; // YYYY-MM-DD
-  summaryToday: string;
-  nextSession: string;
-  laterPending: string;
-  decisions: string;
-  aiPrompt?: string;
-}
-
-interface Review {
-  id: string;
-  date: string;
-  type: ReviewType;
-  notes: string;
-}
-
-interface AppState {
-  projects: Project[];
-  tasks: Task[];
-  ideas: Idea[];
-  dailyLogs: DailyLog[];
-  reviews: Review[];
-}
-
-/* ============================
-   STORAGE LOCAL
-   ============================ */
-
-const STORAGE_KEY = "panel-direccion-personal";
+import {
+  createProject,
+  createTask,
+  fetchPanelData,
+  saveDailyLog,
+  updateTaskStatus as persistTaskStatus,
+} from "./lib/panelData";
+import {
+  getSupabaseConfigError,
+  isSupabaseConfigured,
+} from "./lib/supabase";
+import type {
+  AppState,
+  Area,
+  DailyLog,
+  NewProjectInput,
+  Project,
+  ProjectStatus,
+  Task,
+  TaskStatus,
+} from "./types";
 
 function emptyState(): AppState {
   return {
@@ -84,34 +32,13 @@ function emptyState(): AppState {
   };
 }
 
-function loadState(): AppState {
-  if (typeof window === "undefined") return emptyState();
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return emptyState();
-  try {
-    return JSON.parse(raw) as AppState;
-  } catch (e) {
-    console.error("Error al leer estado guardado, reseteando:", e);
-    return emptyState();
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
-}
 
-function saveState(state: AppState) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  return fallback;
 }
-
-function createId(): string {
-  return (
-    Math.random().toString(36).slice(2) +
-    "-" +
-    Date.now().toString(36)
-  );
-}
-
-/* ============================
-   NAV BAR SIMPLE
-   ============================ */
 
 type View = "projects" | "today" | "ideas" | "reviews";
 
@@ -154,17 +81,14 @@ const NavBar: React.FC<{
   );
 };
 
-/* ============================
-   COMPONENTE: BITÁCORA DIARIA
-   ============================ */
-
 const ProjectDailyLog: React.FC<{
   project: Project;
   logs: DailyLog[];
   today: string;
-  onSaveLog: (log: DailyLog) => void;
+  onSaveLog: (log: DailyLog) => Promise<void>;
 }> = ({ project, logs, today, onSaveLog }) => {
   const [selectedDate, setSelectedDate] = useState<string>(today);
+  const [isSaving, setIsSaving] = useState(false);
 
   const logForDate = useMemo(
     () => logs.find((l) => l.date === selectedDate),
@@ -185,7 +109,7 @@ const ProjectDailyLog: React.FC<{
     setAiPrompt(logForDate?.aiPrompt ?? "");
   }, [logForDate]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const base: DailyLog = logForDate ?? {
       id: "",
       projectId: project.id,
@@ -197,14 +121,19 @@ const ProjectDailyLog: React.FC<{
       aiPrompt: "",
     };
 
-    onSaveLog({
-      ...base,
-      summaryToday,
-      nextSession,
-      laterPending,
-      decisions,
-      aiPrompt,
-    });
+    setIsSaving(true);
+    try {
+      await onSaveLog({
+        ...base,
+        summaryToday,
+        nextSession,
+        laterPending,
+        decisions,
+        aiPrompt,
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const sortedLogs = [...logs].sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -287,10 +216,13 @@ const ProjectDailyLog: React.FC<{
 
           <div className="flex justify-end">
             <button
-              onClick={handleSave}
-              className="px-4 py-1.5 text-sm rounded bg-slate-900 text-white hover:bg-slate-800"
+              onClick={() => {
+                void handleSave();
+              }}
+              disabled={isSaving}
+              className="px-4 py-1.5 text-sm rounded bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60"
             >
-              Guardar bitácora
+              {isSaving ? "Guardando..." : "Guardar bitácora"}
             </button>
           </div>
         </div>
@@ -333,26 +265,12 @@ const ProjectDailyLog: React.FC<{
   );
 };
 
-/* ============================
-   VISTA: PROYECTOS
-   ============================ */
-
-interface NewProjectInput {
-  name: string;
-  area: Area;
-  objective: string;
-  impact: number;
-  urgency: number;
-  effort: number;
-  status: ProjectStatus;
-}
-
 const ProjectsView: React.FC<{
   projects: Project[];
   dailyLogs: DailyLog[];
   today: string;
-  onAddProject: (input: NewProjectInput) => void;
-  onSaveDailyLog: (log: DailyLog) => void;
+  onAddProject: (input: NewProjectInput) => Promise<void>;
+  onSaveDailyLog: (log: DailyLog) => Promise<void>;
   computeScore: (p: Project) => number;
 }> = ({ projects, dailyLogs, today, onAddProject, onSaveDailyLog, computeScore }) => {
   const [form, setForm] = useState<NewProjectInput>({
@@ -364,8 +282,8 @@ const ProjectsView: React.FC<{
     effort: 3,
     status: "En marcha",
   });
-
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const projectsWithScore = useMemo(
     () =>
@@ -384,31 +302,37 @@ const ProjectsView: React.FC<{
     const n = Number(value);
     setForm((prev) => ({
       ...prev,
-      [field]: isNaN(n) ? 1 : Math.min(5, Math.max(1, n)),
+      [field]: Number.isNaN(n) ? 1 : Math.min(5, Math.max(1, n)),
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    onAddProject(form);
-    setForm({
-      name: "",
-      area: "Negocio",
-      objective: "",
-      impact: 3,
-      urgency: 3,
-      effort: 3,
-      status: "En marcha",
-    });
+
+    setIsSubmitting(true);
+    try {
+      await onAddProject(form);
+      setForm({
+        name: "",
+        area: "Negocio",
+        objective: "",
+        impact: 3,
+        urgency: 3,
+        effort: 3,
+        status: "En marcha",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const areas: Area[] = ["Negocio", "Personal", "Salud", "Familia", "Otro"];
+  const statuses: ProjectStatus[] = ["Idea", "En marcha", "Pausado", "Cerrado"];
 
   return (
     <div className="max-w-5xl mx-auto px-4 pb-8">
       <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
-        {/* Lista de proyectos */}
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="font-semibold text-slate-800 mb-3">
             Proyectos (ordenados por prioridad)
@@ -464,12 +388,11 @@ const ProjectsView: React.FC<{
           </p>
         </div>
 
-        {/* Formulario nuevo proyecto */}
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="font-semibold text-slate-800 mb-3">
             Nuevo proyecto
           </h2>
-          <form onSubmit={handleSubmit} className="space-y-3 text-sm">
+          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3 text-sm">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
                 Nombre del proyecto
@@ -560,12 +483,35 @@ const ProjectsView: React.FC<{
               </div>
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Estado
+              </label>
+              <select
+                className="w-full border rounded px-2 py-1"
+                value={form.status}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    status: e.target.value as ProjectStatus,
+                  }))
+                }
+              >
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-1.5 rounded bg-slate-900 text-white text-sm hover:bg-slate-800"
+                disabled={isSubmitting}
+                className="px-4 py-1.5 rounded bg-slate-900 text-white text-sm hover:bg-slate-800 disabled:opacity-60"
               >
-                Guardar proyecto
+                {isSubmitting ? "Guardando..." : "Guardar proyecto"}
               </button>
             </div>
           </form>
@@ -584,10 +530,6 @@ const ProjectsView: React.FC<{
   );
 };
 
-/* ============================
-   VISTA: HOY
-   ============================ */
-
 const TodayView: React.FC<{
   initialDate: string;
   projects: Project[];
@@ -597,13 +539,14 @@ const TodayView: React.FC<{
     date: string;
     projectId?: string;
     isKey: boolean;
-  }) => void;
-  onUpdateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  }) => Promise<void>;
+  onUpdateTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>;
 }> = ({ initialDate, projects, tasks, onAddTask, onUpdateTaskStatus }) => {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<string | "">("");
   const [isKey, setIsKey] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const tasksForDay = useMemo(
     () => tasks.filter((t) => t.date === selectedDate),
@@ -612,7 +555,7 @@ const TodayView: React.FC<{
 
   const keyTasksCount = tasksForDay.filter((t) => t.isKey).length;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
@@ -621,15 +564,20 @@ const TodayView: React.FC<{
       return;
     }
 
-    onAddTask({
-      title,
-      date: selectedDate,
-      projectId: projectId || undefined,
-      isKey,
-    });
+    setIsSubmitting(true);
+    try {
+      await onAddTask({
+        title,
+        date: selectedDate,
+        projectId: projectId || undefined,
+        isKey,
+      });
 
-    setTitle("");
-    setIsKey(true);
+      setTitle("");
+      setIsKey(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getProjectName = (id?: string) =>
@@ -660,7 +608,7 @@ const TodayView: React.FC<{
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-2 text-sm">
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-2 text-sm">
           <div className="grid gap-2 md:grid-cols-[2fr,1fr]">
             <input
               type="text"
@@ -694,9 +642,10 @@ const TodayView: React.FC<{
             </label>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded bg-slate-900 text-white text-xs hover:bg-slate-800"
+              disabled={isSubmitting}
+              className="px-4 py-1.5 rounded bg-slate-900 text-white text-xs hover:bg-slate-800 disabled:opacity-60"
             >
-              Agregar tarea
+              {isSubmitting ? "Guardando..." : "Agregar tarea"}
             </button>
           </div>
         </form>
@@ -741,9 +690,9 @@ const TodayView: React.FC<{
                 <div className="flex items-center gap-2">
                   <select
                     value={task.status}
-                    onChange={(e) =>
-                      onUpdateTaskStatus(task.id, e.target.value as TaskStatus)
-                    }
+                    onChange={(e) => {
+                      void onUpdateTaskStatus(task.id, e.target.value as TaskStatus);
+                    }}
                     className="border rounded px-2 py-1 text-xs"
                   >
                     {statusOptions.map((s) => (
@@ -761,10 +710,6 @@ const TodayView: React.FC<{
     </div>
   );
 };
-
-/* ============================
-   VISTAS PLACEHOLDER: IDEAS Y REVISIÓN
-   ============================ */
 
 const IdeasView: React.FC = () => (
   <div className="max-w-4xl mx-auto px-4 pb-8">
@@ -792,111 +737,196 @@ const ReviewsView: React.FC = () => (
   </div>
 );
 
-/* ============================
-   APP PRINCIPAL
-   ============================ */
-
 const getToday = () => new Date().toISOString().slice(0, 10);
 
 const computeScore = (project: Project): number =>
   project.impact * 2 + project.urgency - project.effort;
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>(() => loadState());
+  const [state, setState] = useState<AppState>(emptyState);
   const [currentView, setCurrentView] = useState<View>("projects");
+  const [isLoading, setIsLoading] = useState(true);
+  const [syncError, setSyncError] = useState<string | null>(
+    getSupabaseConfigError()
+  );
 
   useEffect(() => {
-    saveState(state);
-  }, [state]);
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const remoteData = await fetchPanelData();
+        if (!isMounted) return;
+
+        setState((prev) => ({
+          ...prev,
+          projects: remoteData.projects,
+          tasks: remoteData.tasks,
+          dailyLogs: remoteData.dailyLogs,
+        }));
+        setSyncError(null);
+      } catch (error) {
+        if (!isMounted) return;
+        setSyncError(
+          getErrorMessage(error, "No se pudo cargar la información desde Supabase.")
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const today = getToday();
 
-  const handleAddProject = (input: NewProjectInput) => {
-    const project: Project = {
-      id: createId(),
-      ...input,
-      createdAt: new Date().toISOString(),
-    };
-    setState((prev) => ({
-      ...prev,
-      projects: [...prev.projects, project],
-    }));
-  };
-
-  const handleSaveDailyLog = (log: DailyLog) => {
-    setState((prev) => {
-      const existingIndex = prev.dailyLogs.findIndex(
-        (l) => l.projectId === log.projectId && l.date === log.date
+  const handleAddProject = async (input: NewProjectInput) => {
+    try {
+      const project = await createProject(input);
+      setState((prev) => ({
+        ...prev,
+        projects: [...prev.projects, project],
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo guardar el proyecto en Supabase."
       );
-      if (existingIndex >= 0) {
-        const updated = [...prev.dailyLogs];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          ...log,
-        };
-        return { ...prev, dailyLogs: updated };
-      }
-      const newLog: DailyLog = { ...log, id: createId() };
-      return { ...prev, dailyLogs: [...prev.dailyLogs, newLog] };
-    });
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
   };
 
-  const handleAddTask = (input: {
+  const handleSaveDailyLog = async (log: DailyLog) => {
+    try {
+      const savedLog = await saveDailyLog(log);
+      setState((prev) => {
+        const existingIndex = prev.dailyLogs.findIndex(
+          (item) =>
+            item.id === savedLog.id ||
+            (item.projectId === savedLog.projectId && item.date === savedLog.date)
+        );
+
+        if (existingIndex >= 0) {
+          const updatedLogs = [...prev.dailyLogs];
+          updatedLogs[existingIndex] = savedLog;
+          return { ...prev, dailyLogs: updatedLogs };
+        }
+
+        return { ...prev, dailyLogs: [...prev.dailyLogs, savedLog] };
+      });
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo guardar la bitácora en Supabase."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleAddTask = async (input: {
     title: string;
     date: string;
     projectId?: string;
     isKey: boolean;
   }) => {
-    setState((prev) => ({
-      ...prev,
-      tasks: [
-        ...prev.tasks,
-        {
-          id: createId(),
-          title: input.title,
-          date: input.date,
-          projectId: input.projectId,
-          isKey: input.isKey,
-          status: "Pendiente",
-        },
-      ],
-    }));
+    try {
+      const task = await createTask(input);
+      setState((prev) => ({
+        ...prev,
+        tasks: [...prev.tasks, task],
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo guardar la tarea en Supabase."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
   };
 
-  const handleUpdateTaskStatus = (taskId: string, status: TaskStatus) => {
-    setState((prev) => ({
-      ...prev,
-      tasks: prev.tasks.map((t) =>
-        t.id === taskId ? { ...t, status } : t
-      ),
-    }));
+  const handleUpdateTaskStatus = async (taskId: string, status: TaskStatus) => {
+    try {
+      const updatedTask = await persistTaskStatus(taskId, status);
+      setState((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task) =>
+          task.id === taskId ? updatedTask : task
+        ),
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo actualizar el estado de la tarea en Supabase."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
   };
 
   return (
     <div className="flex flex-col min-h-screen">
       <NavBar currentView={currentView} onChangeView={setCurrentView} />
+      {syncError && (
+        <div className="max-w-5xl mx-auto w-full px-4 mb-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {syncError}
+          </div>
+        </div>
+      )}
       <main className="flex-1">
-        {currentView === "projects" && (
-          <ProjectsView
-            projects={state.projects}
-            dailyLogs={state.dailyLogs}
-            today={today}
-            onAddProject={handleAddProject}
-            onSaveDailyLog={handleSaveDailyLog}
-            computeScore={computeScore}
-          />
+        {isLoading ? (
+          <div className="max-w-4xl mx-auto px-4 pb-8">
+            <div className="bg-white rounded-lg shadow p-4 text-sm text-slate-600">
+              Cargando datos desde Supabase...
+            </div>
+          </div>
+        ) : (
+          <>
+            {currentView === "projects" && (
+              <ProjectsView
+                projects={state.projects}
+                dailyLogs={state.dailyLogs}
+                today={today}
+                onAddProject={handleAddProject}
+                onSaveDailyLog={handleSaveDailyLog}
+                computeScore={computeScore}
+              />
+            )}
+            {currentView === "today" && (
+              <TodayView
+                initialDate={today}
+                projects={state.projects}
+                tasks={state.tasks}
+                onAddTask={handleAddTask}
+                onUpdateTaskStatus={handleUpdateTaskStatus}
+              />
+            )}
+            {currentView === "ideas" && <IdeasView />}
+            {currentView === "reviews" && <ReviewsView />}
+          </>
         )}
-        {currentView === "today" && (
-          <TodayView
-            initialDate={today}
-            projects={state.projects}
-            tasks={state.tasks}
-            onAddTask={handleAddTask}
-            onUpdateTaskStatus={handleUpdateTaskStatus}
-          />
-        )}
-        {currentView === "ideas" && <IdeasView />}
-        {currentView === "reviews" && <ReviewsView />}
       </main>
     </div>
   );

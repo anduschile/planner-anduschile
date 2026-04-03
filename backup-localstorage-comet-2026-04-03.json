@@ -1,0 +1,47 @@
+panel-direccion-personal	{"projects":[{"id":"qye40kcv2bs-miwhhas1","name":"Arte Brisa Patagonia","area":"Negocio","objective":"Aumentar ocupación y automatizar la gestión operativa de las cabañas.","impact":3,"urgency":4,"effort":3,"status":"En marcha","createdAt":"2025-12-08T01:39:30.385Z"},{"id":"7fmkp98e3s-miwhkabs","name":"Ventas de apps y webs","area":"Negocio","objective":"Comenzar a vender de una vez por todas","impact":5,"urgency":5,"effort":3,"status":"En marcha","createdAt":"2025-12-08T01:41:49.768Z"},{"id":"iqdar7v6ujl-miwhlkvd","name":"Binnacle – Dirección Personal y Gestión de Proyectos","area":"Negocio","objective":"Completar para que sea una real ayuda a desarrollar una rutina y concretar de una vez por todas","impact":5,"urgency":4,"effort":4,"status":"En marcha","createdAt":"2025-12-08T01:42:50.089Z"},{"id":"nik9gnry9vq-miwhmes8","name":"Panel AndusChile – Apps internas","area":"Negocio","objective":"generar app internas","impact":3,"urgency":3,"effort":3,"status":"En marcha","createdAt":"2025-12-08T01:43:28.856Z"},{"id":"llddgaertk-miwhn7eg","name":"Salud & Energía Personal","area":"Salud","objective":"Establecer una rutina para mejorar la salud y estado fisico","impact":5,"urgency":4,"effort":5,"status":"En marcha","createdAt":"2025-12-08T01:44:05.944Z"},{"id":"oppa7sjaf0r-miwhoo9t","name":"Comunidad & Relaciones (Familia / Equipo / Red local)","area":"Familia","objective":"reestablecer relaciones con todos los que me quieren y a los que yo quiero","impact":5,"urgency":4,"effort":4,"status":"En marcha","createdAt":"2025-12-08T01:45:14.465Z"},{"id":"z10ff2ofup9-miwhpm01","name":"LoretoBelen","area":"Negocio","objective":"migrar aplicacion a mi sistema completamente armado desde cero sin vibe code","impact":4,"urgency":3,"effort":4,"status":"En marcha","createdAt":"2025-12-08T01:45:58.177Z"},{"id":"3865gkvfdiz-miwhq4ps","name":"Huevos","area":"Negocio","objective":"Evaluar reincorporarme al negoci","impact":3,"urgency":3,"effort":3,"status":"En marcha","createdAt":"2025-12-08T01:46:22.432Z"},{"id":"7r3hrdbapd3-mja53d7i","name":"Skool Comunidad educativa","area":"Negocio","objective":"Generar una comunidad a traves de Skool para vender y tener membresias","impact":3,"urgency":3,"effort":4,"status":"En marcha","createdAt":"2025-12-17T15:01:31.422Z"}],"tasks":[{"id":"vauaq8ia749-miwhyznu","title":"Terminar de configurar App para estbalecer migracion a mas tardar el dia 10 de diciembre","date":"2025-12-08","projectId":"z10ff2ofup9-miwhpm01","isKey":true,"status":"Hecha"},{"id":"fg3ceb0i92-miwhzng9","title":"Empezar a terminar la pagina de artebrisa patagonia.com","date":"2025-12-08","projectId":"qye40kcv2bs-miwhhas1","isKey":true,"status":"En curso"},{"id":"6kxm2094w6u-miwi0dr5","title":"Llamar a Luis Torres y cerrar el inicio de la venta de paginas y aplicaciones en Natales ","date":"2025-12-08","projectId":"7fmkp98e3s-miwhkabs","isKey":true,"status":"En curso"},{"id":"oeyn35vhhc-miypj25j","title":"mpezar a terminar la pagina de artebrisa patagonia.com","date":"2025-12-09","projectId":"qye40kcv2bs-miwhhas1","isKey":true,"status":"En curso"},{"id":"pp36vf8l3o-miypjcvx","title":"Llamar a Luis Torres y cerrar el inicio de la venta de paginas y aplicaciones en Natales","date":"2025-12-09","projectId":"7fmkp98e3s-miwhkabs","isKey":true,"status":"Pendiente"},{"id":"klv2b59p2u-miypk09a","title":"Dejar 100% habilitada aplicacion de reservas reservaslb.anduschile.com","date":"2025-12-09","projectId":"z10ff2ofup9-miwhpm01","isKey":true,"status":"Hecha"},{"id":"7pl6l5p8nza-mizh7m56","title":"Empezar a terminar la pagina de artebrisa patagonia.com","date":"2025-12-10","projectId":"qye40kcv2bs-miwhhas1","isKey":true,"status":"En curso"},{"id":"mmnlfb4cei-mizh7zwq","title":"Llamar a Luis Torres y cerrar el inicio de la venta de paginas y aplicaciones en Natales","date":"2025-12-10","projectId":"7fmkp98e3s-miwhkabs","isKey":true,"status":"Pendiente"},{"id":"gwcdwcoxxb-mja4l2pd","title":"Transcribir listado de servicios Aramark","date":"2025-12-17","isKey":true,"status":"En curso"},{"id":"1jtjpjoqv55i-mja4lchq","title":"Hablar con Luis Torres","da
+{projects: [{id: "qye40kcv2bs-miwhhas1", name: "Arte Brisa Patagonia", area: "Negocio",…},…],…}
+dailyLogs
+: 
+[{id: "5oivpqre1w-miwhrj4g", projectId: "qye40kcv2bs-miwhhas1", date: "2025-12-08",…},…]
+0
+: 
+{id: "5oivpqre1w-miwhrj4g", projectId: "qye40kcv2bs-miwhhas1", date: "2025-12-08",…}
+1
+: 
+{id: "03mzkezqiz43-miwhscnl", projectId: "iqdar7v6ujl-miwhlkvd", date: "2025-12-08",…}
+aiPrompt
+: 
+"Hoy establecí el inicio formal de mi sistema de dirección personal. Cuando retome, quiero evaluar si mis tareas clave están alineadas a mis prioridades reales."
+date
+: 
+"2025-12-08"
+decisions
+: 
+"Este proyecto es el motor del resto. Si mantengo la disciplina mínima, la claridad del sistema me va a multiplicar el rendimiento."
+id
+: 
+"03mzkezqiz43-miwhscnl"
+laterPending
+: 
+"Crear rutina semanal de revisión\n\nEvaluar panel de métricas (tareas clave cumplidas, avances por proyecto)\n\nEstudiar integración con calendario"
+nextSession
+: 
+"Revisar mis tareas clave del día y registrar la bitácora al cerrar la jornada. Ajustar el sistema si aparece algún bloqueo o duda."
+projectId
+: 
+"iqdar7v6ujl-miwhlkvd"
+summaryToday
+: 
+"Arranqué oficialmente el uso del Panel de Dirección Personal. Definí los proyectos base y las tareas clave de mañana. El sistema ya está funcionando."
+ideas
+: 
+[]
+projects
+: 
+[{id: "qye40kcv2bs-miwhhas1", name: "Arte Brisa Patagonia", area: "Negocio",…},…]
+reviews
+: 
+[]
+tasks
+: 
+[{id: "vauaq8ia749-miwhyznu",…},…]

@@ -1,0 +1,68 @@
+panel-direccion-personal	{"projects":[{"id":"qruni85mssb-mniwmiti","name":"Aplicacion Estudio Lucas","area":"Personal","objective":"Generara una aplicacion de Estudio para el Lu","impact":4,"urgency":3,"effort":2,"status":"En marcha","createdAt":"2026-04-03T12:53:13.542Z"},{"id":"jw2rzf001fe-mniwolyg","name":"Artebrisa Patagonia","area":"Negocio","objective":"Actualizar pagina web y sincronizar con Airbnb y Booking","impact":3,"urgency":4,"effort":4,"status":"En marcha","createdAt":"2026-04-03T12:54:50.920Z"},{"id":"kb6711ul8xc-mniwpile","name":"Confeccionar pagina web Airbnb Betty","area":"Personal","objective":"Confeccionar pagina web alojamiento de Betty","impact":3,"urgency":3,"effort":3,"status":"En marcha","createdAt":"2026-04-03T12:55:33.218Z"},{"id":"bxc8518ltfw-mniwqqf7","name":"Busqueda de Leads en Talleres Mecanicos","area":"Negocio","objective":"Generar clientes para apliacion de Talleres mecanicos, como idea ","impact":4,"urgency":4,"effort":4,"status":"En marcha","createdAt":"2026-04-03T12:56:30.019Z"},{"id":"ttyc1h2r188-mniwru9g","name":"Busqueda de Leads General ","area":"Negocio","objective":"Tercera Etapa","impact":4,"urgency":4,"effort":3,"status":"En marcha","createdAt":"2026-04-03T12:57:21.652Z"},{"id":"kgvqjcvlygh-mniwsqjy","name":"Busqueda de Leads en Natales ","area":"Negocio","objective":"Generar busqueda de clientes en Natales para ofrecer Aplicaciones y Paginas webs","impact":4,"urgency":4,"effort":4,"status":"En marcha","createdAt":"2026-04-03T12:58:03.502Z"},{"id":"h1xswnaf2sw-mniwttyf","name":"Natales en Acción","area":"Negocio","objective":"Puesta en Marcha de Proyecto de Natales en Acción","impact":4,"urgency":4,"effort":4,"status":"En marcha","createdAt":"2026-04-03T12:58:54.567Z"},{"id":"7akermfhsqg-mniwvie1","name":"Sistema Aramark","area":"Negocio","objective":"Confección de sistema Aramark de acuerdo a cotización","impact":3,"urgency":3,"effort":3,"status":"En marcha","createdAt":"2026-04-03T13:00:12.889Z"}],"tasks":[],"ideas":[],"dailyLogs":[{"id":"xht77ad8rlo-mnix7enk","projectId":"qruni85mssb-mniwmiti","date":"2026-04-03","summaryToday":"Dejé el proyecto con el flujo principal de quiz ya operativo en su versión base: generación, respuesta, entrega y revisión del intento. El estado más relevante es que el Quiz 10 quedó funcionando end-to-end y la estructura de intentos/preguntas ya está alineada con el backend. También quedó identificado que la Prueba 20 sigue dependiendo de contar con suficiente material/chunks, por lo que no conviene perder tiempo ahí todavía. El foco inmediato ya no es destrabar generación, sino pulir experiencia de uso, mostrar mejor el resultado y dejar clara la revisión de respuestas.","nextSession":"Retomar desde la UX del quiz ya funcionando. Prioridad 1: dejar visible y claro el puntaje/resultado final. Prioridad 2: mejorar la pantalla de revisión para que se entienda rápido qué estuvo bien y qué estuvo mal. Prioridad 3: implementar o cerrar bien el repaso de respuestas incorrectas. No abrir módulos nuevos todavía. Primero cerrar bien esta experiencia para tener un flujo realmente usable y demostrable.","laterPending":"Quedan pendientes para más adelante: mejorar la lógica para generar evaluaciones más largas cuando falte material suficiente; ampliar fuentes de entrada además de PDF; revisar exportaciones de resumen/quiz; evaluar módulo de notas o texto libre; y ordenar mejor la estrategia de cuentas, grupos familiares y contenido compartido/privado. Todo eso va después de cerrar bien el quiz actual.","decisions":"Se toma como decisión mantener el foco en producto usable y no dispersarse. El proyecto no necesita más rediseño conceptual por ahora; necesita cerrar bien el flujo principal. Se asume como base válida que el cuello de botella principal ya no es técnico en la generación del Quiz 10, sino de experiencia de usuario y claridad del resultado. También se mantiene el criterio de no avanzar en funcionalidades secundarias mientras el quiz principal no quede sólido, claro y fácil de usar.","aiPrompt":"Hoy dejé operativo el flujo base del quiz en la app de Estudio Lucas. El Quiz 10
+{projects: [{id: "qruni85mssb-mniwmiti", name: "Aplicacion Estudio Lucas", area: "Personal",…},…],…}
+dailyLogs
+: 
+[{id: "xht77ad8rlo-mnix7enk", projectId: "qruni85mssb-mniwmiti", date: "2026-04-03",…}]
+0
+: 
+{id: "xht77ad8rlo-mnix7enk", projectId: "qruni85mssb-mniwmiti", date: "2026-04-03",…}
+aiPrompt
+: 
+"Hoy dejé operativo el flujo base del quiz en la app de Estudio Lucas. El Quiz 10 ya funciona de punta a punta: se genera, se responde, se entrega y se revisa. La siguiente sesión debe enfocarse en cerrar la experiencia de usuario del quiz: mostrar mejor el puntaje final, ordenar la revisión de respuestas y resolver el repaso de incorrectas. No abrir nuevas funciones todavía. Priorizar cierre del flujo principal antes de seguir con pruebas largas, exportaciones, notas u otros módulos."
+date
+: 
+"2026-04-03"
+decisions
+: 
+"Se toma como decisión mantener el foco en producto usable y no dispersarse. El proyecto no necesita más rediseño conceptual por ahora; necesita cerrar bien el flujo principal. Se asume como base válida que el cuello de botella principal ya no es técnico en la generación del Quiz 10, sino de experiencia de usuario y claridad del resultado. También se mantiene el criterio de no avanzar en funcionalidades secundarias mientras el quiz principal no quede sólido, claro y fácil de usar."
+id
+: 
+"xht77ad8rlo-mnix7enk"
+laterPending
+: 
+"Quedan pendientes para más adelante: mejorar la lógica para generar evaluaciones más largas cuando falte material suficiente; ampliar fuentes de entrada además de PDF; revisar exportaciones de resumen/quiz; evaluar módulo de notas o texto libre; y ordenar mejor la estrategia de cuentas, grupos familiares y contenido compartido/privado. Todo eso va después de cerrar bien el quiz actual."
+nextSession
+: 
+"Retomar desde la UX del quiz ya funcionando. Prioridad 1: dejar visible y claro el puntaje/resultado final. Prioridad 2: mejorar la pantalla de revisión para que se entienda rápido qué estuvo bien y qué estuvo mal. Prioridad 3: implementar o cerrar bien el repaso de respuestas incorrectas. No abrir módulos nuevos todavía. Primero cerrar bien esta experiencia para tener un flujo realmente usable y demostrable."
+projectId
+: 
+"qruni85mssb-mniwmiti"
+summaryToday
+: 
+"Dejé el proyecto con el flujo principal de quiz ya operativo en su versión base: generación, respuesta, entrega y revisión del intento. El estado más relevante es que el Quiz 10 quedó funcionando end-to-end y la estructura de intentos/preguntas ya está alineada con el backend. También quedó identificado que la Prueba 20 sigue dependiendo de contar con suficiente material/chunks, por lo que no conviene perder tiempo ahí todavía. El foco inmediato ya no es destrabar generación, sino pulir experiencia de uso, mostrar mejor el resultado y dejar clara la revisión de respuestas."
+ideas
+: 
+[]
+projects
+: 
+[{id: "qruni85mssb-mniwmiti", name: "Aplicacion Estudio Lucas", area: "Personal",…},…]
+0
+: 
+{id: "qruni85mssb-mniwmiti", name: "Aplicacion Estudio Lucas", area: "Personal",…}
+1
+: 
+{id: "jw2rzf001fe-mniwolyg", name: "Artebrisa Patagonia", area: "Negocio",…}
+2
+: 
+{id: "kb6711ul8xc-mniwpile", name: "Confeccionar pagina web Airbnb Betty", area: "Personal",…}
+3
+: 
+{id: "bxc8518ltfw-mniwqqf7", name: "Busqueda de Leads en Talleres Mecanicos", area: "Negocio",…}
+4
+: 
+{id: "ttyc1h2r188-mniwru9g", name: "Busqueda de Leads General ", area: "Negocio",…}
+5
+: 
+{id: "kgvqjcvlygh-mniwsqjy", name: "Busqueda de Leads en Natales ", area: "Negocio",…}
+6
+: 
+{id: "h1xswnaf2sw-mniwttyf", name: "Natales en Acción", area: "Negocio",…}
+7
+: 
+{id: "7akermfhsqg-mniwvie1", name: "Sistema Aramark", area: "Negocio",…}
+reviews
+: 
+[]
+tasks
+: 
+[]
