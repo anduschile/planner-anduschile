@@ -375,8 +375,8 @@ const ProjectsView: React.FC<{
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 pb-8">
-      <div className="space-y-6">
+    <div className="max-w-[1500px] mx-auto px-6 pb-8">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <h2 className="font-semibold text-slate-800">
@@ -396,8 +396,8 @@ const ProjectsView: React.FC<{
               Aún no tienes proyectos. Crea el primero en el formulario de abajo.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-[1100px] w-full table-auto text-xs border-collapse">
+            <div className="overflow-x-auto xl:overflow-visible">
+              <table className="w-full table-auto text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50">
                     <th className="border px-3 py-2 text-left">Proyecto</th>
@@ -426,11 +426,11 @@ const ProjectsView: React.FC<{
                       <td className="border px-3 py-2 min-w-[320px] max-w-[420px] break-words">
                         {p.name}
                       </td>
-                      <td className="border px-3 py-2">{p.area}</td>
-                      <td className="border px-3 py-2 text-center">{p.impact}</td>
-                      <td className="border px-3 py-2 text-center">{p.urgency}</td>
-                      <td className="border px-3 py-2 text-center">{p.effort}</td>
-                      <td className="border px-3 py-2 text-center font-semibold">
+                      <td className="border px-3 py-2 whitespace-nowrap">{p.area}</td>
+                      <td className="border px-3 py-2 text-center whitespace-nowrap">{p.impact}</td>
+                      <td className="border px-3 py-2 text-center whitespace-nowrap">{p.urgency}</td>
+                      <td className="border px-3 py-2 text-center whitespace-nowrap">{p.effort}</td>
+                      <td className="border px-3 py-2 text-center font-semibold whitespace-nowrap">
                         {p.score}
                       </td>
                       <td className="border px-3 py-2 text-center whitespace-nowrap">
@@ -483,7 +483,7 @@ const ProjectsView: React.FC<{
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="w-full bg-white rounded-lg shadow p-4 xl:w-[360px] xl:min-w-[360px]">
           <h2 className="font-semibold text-slate-800 mb-3">
             {editingProjectId ? "Editar proyecto" : "Nuevo proyecto"}
           </h2>
