@@ -376,7 +376,7 @@ const ProjectsView: React.FC<{
 
   return (
     <div className="max-w-5xl mx-auto px-4 pb-8">
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <h2 className="font-semibold text-slate-800">
@@ -397,17 +397,7 @@ const ProjectsView: React.FC<{
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full table-auto text-xs border-collapse">
-                <colgroup>
-                  <col className="w-[360px]" />
-                  <col className="w-[110px]" />
-                  <col className="w-[80px]" />
-                  <col className="w-[90px]" />
-                  <col className="w-[90px]" />
-                  <col className="w-[80px]" />
-                  <col className="w-[116px]" />
-                  <col className="w-[190px]" />
-                </colgroup>
+              <table className="min-w-[1100px] w-full table-auto text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50">
                     <th className="border px-3 py-2 text-left">Proyecto</th>
@@ -433,7 +423,9 @@ const ProjectsView: React.FC<{
                         )
                       }
                     >
-                      <td className="border px-3 py-2 break-words">{p.name}</td>
+                      <td className="border px-3 py-2 min-w-[320px] max-w-[420px] break-words">
+                        {p.name}
+                      </td>
                       <td className="border px-3 py-2">{p.area}</td>
                       <td className="border px-3 py-2 text-center">{p.impact}</td>
                       <td className="border px-3 py-2 text-center">{p.urgency}</td>
@@ -444,7 +436,7 @@ const ProjectsView: React.FC<{
                       <td className="border px-3 py-2 text-center whitespace-nowrap">
                         {p.status}
                       </td>
-                      <td className="border px-3 py-2">
+                      <td className="border px-3 py-2 whitespace-nowrap">
                         <div className="flex flex-wrap items-center justify-center gap-1">
                           <button
                             type="button"
@@ -491,7 +483,7 @@ const ProjectsView: React.FC<{
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4 xl:w-[360px] xl:min-w-[360px]">
+        <div className="bg-white rounded-lg shadow p-4 2xl:w-[340px] 2xl:min-w-[340px]">
           <h2 className="font-semibold text-slate-800 mb-3">
             {editingProjectId ? "Editar proyecto" : "Nuevo proyecto"}
           </h2>
