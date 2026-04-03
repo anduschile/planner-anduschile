@@ -376,7 +376,7 @@ const ProjectsView: React.FC<{
 
   return (
     <div className="max-w-5xl mx-auto px-4 pb-8">
-      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="space-y-6">
         <div className="min-w-0 bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <h2 className="font-semibold text-slate-800">
@@ -393,7 +393,7 @@ const ProjectsView: React.FC<{
           </div>
           {projectsWithScore.length === 0 ? (
             <p className="text-sm text-slate-600">
-              Aún no tienes proyectos. Crea el primero en el formulario de la derecha.
+              Aún no tienes proyectos. Crea el primero en el formulario de abajo.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -483,7 +483,7 @@ const ProjectsView: React.FC<{
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4 2xl:w-[340px] 2xl:min-w-[340px]">
+        <div className="bg-white rounded-lg shadow p-4">
           <h2 className="font-semibold text-slate-800 mb-3">
             {editingProjectId ? "Editar proyecto" : "Nuevo proyecto"}
           </h2>
@@ -536,7 +536,7 @@ const ProjectsView: React.FC<{
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Impacto (1–5)
