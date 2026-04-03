@@ -3,8 +3,11 @@ import "./index.css";
 import {
   createProject,
   createTask,
+  deleteProject as removeProject,
   fetchPanelData,
+  getProjectDependencyCounts,
   saveDailyLog,
+  updateProject as persistProjectUpdate,
   updateTaskStatus as persistTaskStatus,
 } from "./lib/panelData";
 import { migrateLocalStorageToSupabase } from "./lib/migration";
@@ -18,6 +21,7 @@ import type {
   DailyLog,
   NewProjectInput,
   Project,
+  ProjectDependencyCounts,
   ProjectStatus,
   Task,
   TaskStatus,
@@ -271,9 +275,22 @@ const ProjectsView: React.FC<{
   dailyLogs: DailyLog[];
   today: string;
   onAddProject: (input: NewProjectInput) => Promise<void>;
+  onUpdateProject: (projectId: string, input: NewProjectInput) => Promise<void>;
+  onArchiveProject: (projectId: string) => Promise<void>;
+  onDeleteProject: (project: Project) => Promise<void>;
   onSaveDailyLog: (log: DailyLog) => Promise<void>;
   computeScore: (p: Project) => number;
-}> = ({ projects, dailyLogs, today, onAddProject, onSaveDailyLog, computeScore }) => {
+}> = ({
+  projects,
+  dailyLogs,
+  today,
+  onAddProject,
+  onUpdateProject,
+  onArchiveProject,
+  onDeleteProject,
+  onSaveDailyLog,
+  computeScore,
+}) => {
   const [form, setForm] = useState<NewProjectInput>({
     name: "",
     area: "Negocio",
@@ -285,16 +302,32 @@ const ProjectsView: React.FC<{
   });
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const projectsWithScore = useMemo(
     () =>
       projects
+        .filter((p) => showArchived || p.status !== "Archivado")
         .map((p) => ({ ...p, score: computeScore(p) }))
         .sort((a, b) => b.score - a.score),
-    [projects, computeScore]
+    [projects, computeScore, showArchived]
   );
 
-  const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null;
+  const selectedProject = projectsWithScore.find((p) => p.id === selectedProjectId) ?? null;
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      area: "Negocio",
+      objective: "",
+      impact: 3,
+      urgency: 3,
+      effort: 3,
+      status: "En marcha",
+    });
+    setEditingProjectId(null);
+  };
 
   const handleChangeNumber = (
     field: "impact" | "urgency" | "effort",
@@ -313,31 +346,51 @@ const ProjectsView: React.FC<{
 
     setIsSubmitting(true);
     try {
-      await onAddProject(form);
-      setForm({
-        name: "",
-        area: "Negocio",
-        objective: "",
-        impact: 3,
-        urgency: 3,
-        effort: 3,
-        status: "En marcha",
-      });
+      if (editingProjectId) {
+        await onUpdateProject(editingProjectId, form);
+      } else {
+        await onAddProject(form);
+      }
+      resetForm();
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const areas: Area[] = ["Negocio", "Personal", "Salud", "Familia", "Otro"];
-  const statuses: ProjectStatus[] = ["Idea", "En marcha", "Pausado", "Cerrado"];
+  const statuses: ProjectStatus[] = ["Idea", "En marcha", "Pausado", "Cerrado", "Archivado"];
+
+  const handleEditProject = (project: Project) => {
+    setEditingProjectId(project.id);
+    setSelectedProjectId(project.id);
+    setForm({
+      name: project.name,
+      area: project.area,
+      objective: project.objective,
+      impact: project.impact,
+      urgency: project.urgency,
+      effort: project.effort,
+      status: project.status,
+    });
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 pb-8">
       <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
         <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="font-semibold text-slate-800 mb-3">
-            Proyectos (ordenados por prioridad)
-          </h2>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="font-semibold text-slate-800">
+              Proyectos (ordenados por prioridad)
+            </h2>
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              Mostrar archivados
+            </label>
+          </div>
           {projectsWithScore.length === 0 ? (
             <p className="text-sm text-slate-600">
               Aún no tienes proyectos. Crea el primero en el formulario de la derecha.
@@ -353,6 +406,7 @@ const ProjectsView: React.FC<{
                   <th className="border px-2 py-1 text-center">Esfuerzo</th>
                   <th className="border px-2 py-1 text-center">Score</th>
                   <th className="border px-2 py-1 text-center">Estado</th>
+                  <th className="border px-2 py-1 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -379,6 +433,42 @@ const ProjectsView: React.FC<{
                     <td className="border px-2 py-1 text-center">
                       {p.status}
                     </td>
+                    <td className="border px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditProject(p);
+                          }}
+                          className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-200"
+                        >
+                          Editar
+                        </button>
+                        {p.status !== "Archivado" && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void onArchiveProject(p.id);
+                            }}
+                            className="rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-700 hover:bg-amber-100"
+                          >
+                            Archivar
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onDeleteProject(p);
+                          }}
+                          className="rounded bg-rose-50 px-2 py-1 text-[11px] text-rose-700 hover:bg-rose-100"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -391,7 +481,7 @@ const ProjectsView: React.FC<{
 
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="font-semibold text-slate-800 mb-3">
-            Nuevo proyecto
+            {editingProjectId ? "Editar proyecto" : "Nuevo proyecto"}
           </h2>
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3 text-sm">
             <div>
@@ -507,12 +597,25 @@ const ProjectsView: React.FC<{
             </div>
 
             <div className="flex justify-end">
+              {editingProjectId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="mr-2 px-4 py-1.5 rounded bg-slate-100 text-slate-700 text-sm hover:bg-slate-200"
+                >
+                  Cancelar
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="px-4 py-1.5 rounded bg-slate-900 text-white text-sm hover:bg-slate-800 disabled:opacity-60"
               >
-                {isSubmitting ? "Guardando..." : "Guardar proyecto"}
+                {isSubmitting
+                  ? "Guardando..."
+                  : editingProjectId
+                    ? "Actualizar proyecto"
+                    : "Guardar proyecto"}
               </button>
             </div>
           </form>
@@ -583,6 +686,7 @@ const TodayView: React.FC<{
 
   const getProjectName = (id?: string) =>
     projects.find((p) => p.id === id)?.name ?? "Sin proyecto";
+  const availableProjects = projects.filter((project) => project.status !== "Archivado");
 
   const statusOptions: TaskStatus[] = ["Pendiente", "En curso", "Hecha"];
 
@@ -624,7 +728,7 @@ const TodayView: React.FC<{
               onChange={(e) => setProjectId(e.target.value)}
             >
               <option value="">Sin proyecto asociado</option>
-              {projects.map((p) => (
+              {availableProjects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
@@ -812,6 +916,92 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateProject = async (
+    projectId: string,
+    input: NewProjectInput
+  ) => {
+    try {
+      const updatedProject = await persistProjectUpdate(projectId, input);
+      setState((prev) => ({
+        ...prev,
+        projects: prev.projects.map((project) =>
+          project.id === projectId ? updatedProject : project
+        ),
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo actualizar el proyecto en Supabase."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleArchiveProject = async (projectId: string) => {
+    const project = state.projects.find((item) => item.id === projectId);
+    if (!project) return;
+
+    await handleUpdateProject(projectId, {
+      name: project.name,
+      area: project.area,
+      objective: project.objective,
+      impact: project.impact,
+      urgency: project.urgency,
+      effort: project.effort,
+      status: "Archivado",
+    });
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    let counts: ProjectDependencyCounts;
+
+    try {
+      counts = await getProjectDependencyCounts(project.id);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudieron verificar las dependencias del proyecto."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+
+    const hasDependencies = counts.tasks > 0 || counts.dailyLogs > 0;
+    if (hasDependencies) {
+      alert(
+        `No se puede eliminar "${project.name}" porque tiene ${counts.tasks} tarea(s) y ${counts.dailyLogs} bitácora(s) asociada(s). Archívalo o limpia esas dependencias primero.`
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Eliminar "${project.name}"?\n\nTareas asociadas: ${counts.tasks}\nBitácoras asociadas: ${counts.dailyLogs}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await removeProject(project.id);
+      setState((prev) => ({
+        ...prev,
+        projects: prev.projects.filter((item) => item.id !== project.id),
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo eliminar el proyecto en Supabase."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
   const handleSaveDailyLog = async (log: DailyLog) => {
     try {
       const savedLog = await saveDailyLog(log);
@@ -912,6 +1102,9 @@ const App: React.FC = () => {
                 dailyLogs={state.dailyLogs}
                 today={today}
                 onAddProject={handleAddProject}
+                onUpdateProject={handleUpdateProject}
+                onArchiveProject={handleArchiveProject}
+                onDeleteProject={handleDeleteProject}
                 onSaveDailyLog={handleSaveDailyLog}
                 computeScore={computeScore}
               />

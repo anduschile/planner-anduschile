@@ -1,5 +1,12 @@
 import { getSupabaseClient } from "./supabase";
-import type { DailyLog, NewProjectInput, Project, Task, TaskStatus } from "../types";
+import type {
+  DailyLog,
+  NewProjectInput,
+  Project,
+  ProjectDependencyCounts,
+  Task,
+  TaskStatus,
+} from "../types";
 
 type ProjectRow = {
   id: string;
@@ -136,6 +143,69 @@ export async function createProject(input: NewProjectInput): Promise<Project> {
   if (error) throw error;
 
   return mapProject(data as ProjectRow);
+}
+
+export async function updateProject(
+  projectId: string,
+  input: NewProjectInput
+): Promise<Project> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("binn_projects")
+    .update({
+      name: input.name,
+      area: input.area,
+      objective: input.objective,
+      impact: input.impact,
+      urgency: input.urgency,
+      effort: input.effort,
+      status: input.status,
+    })
+    .eq("id", projectId)
+    .select(projectSelect)
+    .single();
+
+  if (error) throw error;
+
+  return mapProject(data as ProjectRow);
+}
+
+export async function getProjectDependencyCounts(
+  projectId: string
+): Promise<ProjectDependencyCounts> {
+  const supabase = getSupabaseClient();
+
+  const [{ count: tasksCount, error: tasksError }, { count: dailyLogsCount, error: dailyLogsError }] =
+    await Promise.all([
+      supabase
+        .from("binn_tasks")
+        .select("*", { count: "exact", head: true })
+        .eq("project_id", projectId),
+      supabase
+        .from("binn_daily_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("project_id", projectId),
+    ]);
+
+  if (tasksError) throw tasksError;
+  if (dailyLogsError) throw dailyLogsError;
+
+  return {
+    tasks: tasksCount ?? 0,
+    dailyLogs: dailyLogsCount ?? 0,
+  };
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const supabase = getSupabaseClient();
+
+  const { error } = await supabase
+    .from("binn_projects")
+    .delete()
+    .eq("id", projectId);
+
+  if (error) throw error;
 }
 
 export async function createTask(input: NewTaskInput): Promise<Task> {

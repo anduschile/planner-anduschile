@@ -9,7 +9,7 @@ create table if not exists public.binn_projects (
   impact integer not null check (impact between 1 and 5),
   urgency integer not null check (urgency between 1 and 5),
   effort integer not null check (effort between 1 and 5),
-  status text not null check (status in ('Idea', 'En marcha', 'Pausado', 'Cerrado'))
+  status text not null check (status in ('Idea', 'En marcha', 'Pausado', 'Cerrado', 'Archivado'))
 );
 
 create table if not exists public.binn_tasks (
@@ -61,6 +61,12 @@ for update
 to anon, authenticated
 using (true)
 with check (true);
+
+create policy "binn_projects_public_delete"
+on public.binn_projects
+for delete
+to anon, authenticated
+using (true);
 
 create policy "binn_tasks_public_read"
 on public.binn_tasks

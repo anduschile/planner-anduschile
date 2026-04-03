@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
@@ -203,7 +204,7 @@ function mergeById(items, entityName, conflicts) {
     if (stableStringify(existing) !== stableStringify(item)) {
       conflicts.push({
         entity: entityName,
-        id: item.id,
+        legacyId: item.id,
         sources: [existing.__source, item.__source],
       });
     }
@@ -214,51 +215,11 @@ function mergeById(items, entityName, conflicts) {
   return Array.from(byId.values());
 }
 
-function mapProject(project) {
-  return {
-    id: project.id,
-    name: project.name,
-    area: project.area,
-    objective: project.objective ?? "",
-    impact: Number(project.impact ?? 1),
-    urgency: Number(project.urgency ?? 1),
-    effort: Number(project.effort ?? 1),
-    status: project.status,
-    created_at: safeIsoDate(project.createdAt),
-  };
-}
-
-function mapTask(task) {
-  return {
-    id: task.id,
-    project_id: typeof task.projectId === "string" ? task.projectId : null,
-    title: task.title,
-    task_date: task.date,
-    is_key: Boolean(task.isKey),
-    status: task.status,
-    created_at: safeIsoDate(task.createdAt),
-  };
-}
-
-function mapDailyLog(log) {
-  return {
-    id: log.id,
-    project_id: log.projectId,
-    log_date: log.date,
-    summary_today: log.summaryToday ?? "",
-    next_session: log.nextSession ?? "",
-    later_pending: log.laterPending ?? "",
-    decisions: log.decisions ?? "",
-    ai_prompt: log.aiPrompt ?? "",
-    created_at: safeIsoDate(log.createdAt),
-  };
-}
-
 function chunk(array, size) {
   const result = [];
 
-  for (let i = 0; i < array.length; i += size) {
-    result.push(array.slice(i, i + size));
+  for (let index = 0; index < array.length; index += size) {
+    result.push(array.slice(index, index + size));
   }
 
   return result;
@@ -268,17 +229,10 @@ async function upsertInChunks(supabase, table, rows, options = {}) {
   if (rows.length === 0) return 0;
 
   let total = 0;
-  const chunks = chunk(rows, 200);
 
-  for (const rowsChunk of chunks) {
-    const { error } = await supabase
-      .from(table)
-      .upsert(rowsChunk, options);
-
-    if (error) {
-      throw error;
-    }
-
+  for (const rowsChunk of chunk(rows, 200)) {
+    const { error } = await supabase.from(table).upsert(rowsChunk, options);
+    if (error) throw error;
     total += rowsChunk.length;
   }
 
@@ -304,10 +258,14 @@ function findSimilarProjectNames(importProjects, existingProjects) {
   const results = [];
   const seen = new Set();
 
-  for (let i = 0; i < allProjects.length; i += 1) {
-    for (let j = i + 1; j < allProjects.length; j += 1) {
-      const left = allProjects[i];
-      const right = allProjects[j];
+  for (let leftIndex = 0; leftIndex < allProjects.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < allProjects.length;
+      rightIndex += 1
+    ) {
+      const left = allProjects[leftIndex];
+      const right = allProjects[rightIndex];
 
       if (!left.normalized || !right.normalized) continue;
       if (left.id === right.id) continue;
@@ -325,6 +283,94 @@ function findSimilarProjectNames(importProjects, existingProjects) {
   }
 
   return results;
+}
+
+function buildProjectRows(projects) {
+  const projectIdMap = new Map();
+  const rows = projects.map((project) => {
+    const newId = randomUUID();
+    projectIdMap.set(project.id, newId);
+
+    return {
+      id: newId,
+      name: project.name,
+      area: project.area,
+      objective: project.objective ?? "",
+      impact: Number(project.impact ?? 1),
+      urgency: Number(project.urgency ?? 1),
+      effort: Number(project.effort ?? 1),
+      status: project.status,
+      created_at: safeIsoDate(project.createdAt),
+    };
+  });
+
+  return { rows, projectIdMap };
+}
+
+function buildTaskRows(tasks, projectIdMap) {
+  const rows = [];
+  const omitted = [];
+
+  for (const task of tasks) {
+    const mappedProjectId =
+      typeof task.projectId === "string" ? projectIdMap.get(task.projectId) : null;
+
+    if (task.projectId && !mappedProjectId) {
+      omitted.push({
+        type: "task",
+        legacyId: task.id,
+        legacyProjectId: task.projectId,
+        reason: "missing-project-mapping",
+      });
+      continue;
+    }
+
+    rows.push({
+      id: randomUUID(),
+      project_id: mappedProjectId ?? null,
+      title: task.title,
+      task_date: task.date,
+      is_key: Boolean(task.isKey),
+      status: task.status,
+      created_at: safeIsoDate(task.createdAt),
+    });
+  }
+
+  return { rows, omitted };
+}
+
+function buildDailyLogRows(dailyLogs, projectIdMap) {
+  const rows = [];
+  const omitted = [];
+
+  for (const log of dailyLogs) {
+    const mappedProjectId = projectIdMap.get(log.projectId);
+
+    if (!mappedProjectId) {
+      omitted.push({
+        type: "dailyLog",
+        legacyId: log.id,
+        legacyProjectId: log.projectId,
+        logDate: log.date,
+        reason: "missing-project-mapping",
+      });
+      continue;
+    }
+
+    rows.push({
+      id: randomUUID(),
+      project_id: mappedProjectId,
+      log_date: log.date,
+      summary_today: log.summaryToday ?? "",
+      next_session: log.nextSession ?? "",
+      later_pending: log.laterPending ?? "",
+      decisions: log.decisions ?? "",
+      ai_prompt: log.aiPrompt ?? "",
+      created_at: safeIsoDate(log.createdAt),
+    });
+  }
+
+  return { rows, omitted };
 }
 
 async function main() {
@@ -373,10 +419,6 @@ async function main() {
     dailyLogs: mergedDailyLogs.length,
   });
 
-  const projectRows = mergedProjects.map(mapProject);
-  const taskRows = mergedTasks.map(mapTask);
-  const dailyLogRows = mergedDailyLogs.map(mapDailyLog);
-
   const [{ data: existingProjects, error: existingProjectsError }, { data: existingDailyLogs, error: existingDailyLogsError }] =
     await Promise.all([
       supabase.from("binn_projects").select("id, name"),
@@ -391,30 +433,21 @@ async function main() {
     existingProjects ?? []
   );
 
-  const validProjectIds = new Set([
-    ...projectRows.map((row) => row.id),
-    ...(existingProjects ?? []).map((row) => row.id),
-  ]);
-
-  const orphanTasks = taskRows.filter(
-    (row) => row.project_id && !validProjectIds.has(row.project_id)
+  const { rows: projectRows, projectIdMap } = buildProjectRows(mergedProjects);
+  const { rows: taskRows, omitted: omittedTasks } = buildTaskRows(
+    mergedTasks,
+    projectIdMap
   );
-  const orphanDailyLogs = dailyLogRows.filter(
-    (row) => row.project_id && !validProjectIds.has(row.project_id)
-  );
-
-  const filteredTaskRows = taskRows.filter(
-    (row) => !row.project_id || validProjectIds.has(row.project_id)
-  );
-  const filteredDailyLogRows = dailyLogRows.filter((row) =>
-    validProjectIds.has(row.project_id)
+  const { rows: dailyLogRows, omitted: omittedDailyLogs } = buildDailyLogRows(
+    mergedDailyLogs,
+    projectIdMap
   );
 
   const dailyLogIdByComposite = new Map(
     (existingDailyLogs ?? []).map((row) => [`${row.project_id}::${row.log_date}`, row.id])
   );
 
-  const dailyLogRowsWithResolvedIds = filteredDailyLogRows.map((row) => {
+  const dailyLogRowsWithResolvedIds = dailyLogRows.map((row) => {
     const existingId = dailyLogIdByComposite.get(`${row.project_id}::${row.log_date}`);
     return {
       ...row,
@@ -426,7 +459,7 @@ async function main() {
     onConflict: "id",
   });
 
-  const importedTasks = await upsertInChunks(supabase, "binn_tasks", filteredTaskRows, {
+  const importedTasks = await upsertInChunks(supabase, "binn_tasks", taskRows, {
     onConflict: "id",
   });
 
@@ -439,30 +472,34 @@ async function main() {
 
   console.log("");
   console.log("=== IMPORT SUMMARY ===");
+  console.log("Proyectos encontrados:", mergedProjects.length);
+  console.log("Tareas encontradas:", mergedTasks.length);
+  console.log("Bitácoras encontradas:", mergedDailyLogs.length);
   console.log("Proyectos importados:", importedProjects);
   console.log("Tareas importadas:", importedTasks);
   console.log("Bitácoras importadas:", importedDailyLogs);
+  console.log("Mappings generados:", projectIdMap.size);
   console.log("Conflictos detectados:", conflicts.length);
-  console.log("Tareas omitidas por project_id huérfano:", orphanTasks.length);
-  console.log("Bitácoras omitidas por project_id huérfano:", orphanDailyLogs.length);
-
-  if (conflicts.length > 0) {
-    console.log("");
-    console.log("Conflictos por mismo id con contenido distinto:");
-    for (const conflict of conflicts) {
-      console.log(
-        `- ${conflict.entity} id=${conflict.id} sources=${conflict.sources.join(", ")}`
-      );
-    }
-  }
-
-  console.log("");
+  console.log("Tareas omitidas:", omittedTasks.length);
+  console.log("Bitácoras omitidas:", omittedDailyLogs.length);
   console.log(
     "Posibles duplicados por nombre parecido pero distinto id:",
     similarProjects.length
   );
 
+  if (conflicts.length > 0) {
+    console.log("");
+    console.log("Conflictos por mismo id legacy con contenido distinto:");
+    for (const conflict of conflicts) {
+      console.log(
+        `- ${conflict.entity} legacy_id=${conflict.legacyId} sources=${conflict.sources.join(", ")}`
+      );
+    }
+  }
+
   if (similarProjects.length > 0) {
+    console.log("");
+    console.log("Posibles duplicados semánticos de proyectos:");
     for (const duplicate of similarProjects) {
       console.log(
         `- "${duplicate.left.name}" (${duplicate.left.id}, ${duplicate.left.source}) <-> "${duplicate.right.name}" (${duplicate.right.id}, ${duplicate.right.source})`
@@ -470,20 +507,30 @@ async function main() {
     }
   }
 
-  if (orphanTasks.length > 0) {
+  if (omittedTasks.length > 0) {
     console.log("");
-    console.log("Tareas omitidas por referencia inválida:");
-    for (const task of orphanTasks) {
-      console.log(`- ${task.id} -> project_id=${task.project_id}`);
+    console.log("Tareas omitidas por projectId legacy sin mapping:");
+    for (const item of omittedTasks) {
+      console.log(
+        `- legacy_task_id=${item.legacyId} legacy_project_id=${item.legacyProjectId}`
+      );
     }
   }
 
-  if (orphanDailyLogs.length > 0) {
+  if (omittedDailyLogs.length > 0) {
     console.log("");
-    console.log("Bitácoras omitidas por referencia inválida:");
-    for (const log of orphanDailyLogs) {
-      console.log(`- ${log.id} -> project_id=${log.project_id} log_date=${log.log_date}`);
+    console.log("Bitácoras omitidas por projectId legacy sin mapping:");
+    for (const item of omittedDailyLogs) {
+      console.log(
+        `- legacy_log_id=${item.legacyId} legacy_project_id=${item.legacyProjectId} log_date=${item.logDate}`
+      );
     }
+  }
+
+  console.log("");
+  console.log("Ejemplo de mappings generados old_project_id -> new_project_uuid:");
+  for (const [legacyId, newUuid] of Array.from(projectIdMap.entries()).slice(0, 10)) {
+    console.log(`- ${legacyId} -> ${newUuid}`);
   }
 }
 

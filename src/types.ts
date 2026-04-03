@@ -1,6 +1,6 @@
 export type Area = "Negocio" | "Personal" | "Salud" | "Familia" | "Otro";
 
-export type ProjectStatus = "Idea" | "En marcha" | "Pausado" | "Cerrado";
+export type ProjectStatus = "Idea" | "En marcha" | "Pausado" | "Cerrado" | "Archivado";
 
 export type TaskStatus = "Pendiente" | "En curso" | "Hecha";
 
@@ -72,4 +72,9 @@ export interface NewProjectInput {
   urgency: number;
   effort: number;
   status: ProjectStatus;
+}
+
+export interface ProjectDependencyCounts {
+  tasks: number;
+  dailyLogs: number;
 }
