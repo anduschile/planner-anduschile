@@ -17,7 +17,7 @@ create table if not exists public.binn_tasks (
   created_at timestamptz not null default now(),
   project_id uuid references public.binn_projects(id) on delete set null,
   title text not null,
-  date date not null,
+  task_date date not null,
   is_key boolean not null default false,
   status text not null check (status in ('Pendiente', 'En curso', 'Hecha'))
 );
@@ -35,7 +35,7 @@ create table if not exists public.binn_daily_logs (
   constraint binn_daily_logs_project_id_log_date_key unique (project_id, log_date)
 );
 
-create index if not exists binn_tasks_date_idx on public.binn_tasks (date);
+create index if not exists binn_tasks_task_date_idx on public.binn_tasks (task_date);
 create index if not exists binn_tasks_project_id_idx on public.binn_tasks (project_id);
 create index if not exists binn_daily_logs_project_log_date_idx on public.binn_daily_logs (project_id, log_date desc);
 

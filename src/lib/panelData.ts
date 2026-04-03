@@ -18,7 +18,7 @@ type TaskRow = {
   created_at: string;
   project_id: string | null;
   title: string;
-  date: string;
+  task_date: string;
   is_key: boolean;
   status: TaskStatus;
 };
@@ -53,7 +53,7 @@ type PanelData = {
 const projectSelect =
   "id, created_at, name, area, objective, impact, urgency, effort, status";
 const taskSelect =
-  "id, created_at, project_id, title, date, is_key, status";
+  "id, created_at, project_id, title, task_date, is_key, status";
 const dailyLogSelect =
   "id, created_at, project_id, log_date, summary_today, next_session, later_pending, decisions, ai_prompt";
 
@@ -76,7 +76,7 @@ function mapTask(row: TaskRow): Task {
     id: row.id,
     projectId: row.project_id ?? undefined,
     title: row.title,
-    date: row.date,
+    date: row.task_date,
     isKey: row.is_key,
     status: row.status,
   };
@@ -101,7 +101,7 @@ export async function fetchPanelData(): Promise<PanelData> {
   const [{ data: projectRows, error: projectsError }, { data: taskRows, error: tasksError }, { data: dailyLogRows, error: dailyLogsError }] =
     await Promise.all([
       supabase.from("binn_projects").select(projectSelect).order("created_at", { ascending: true }),
-      supabase.from("binn_tasks").select(taskSelect).order("date", { ascending: true }).order("created_at", { ascending: true }),
+      supabase.from("binn_tasks").select(taskSelect).order("task_date", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("binn_daily_logs").select(dailyLogSelect).order("log_date", { ascending: false }).order("created_at", { ascending: false }),
     ]);
 
@@ -145,7 +145,7 @@ export async function createTask(input: NewTaskInput): Promise<Task> {
     .from("binn_tasks")
     .insert({
       title: input.title,
-      date: input.date,
+      task_date: input.date,
       project_id: input.projectId ?? null,
       is_key: input.isKey,
       status: "Pendiente",

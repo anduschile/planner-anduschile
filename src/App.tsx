@@ -7,6 +7,7 @@ import {
   saveDailyLog,
   updateTaskStatus as persistTaskStatus,
 } from "./lib/panelData";
+import { migrateLocalStorageToSupabase } from "./lib/migration";
 import {
   getSupabaseConfigError,
   isSupabaseConfigured,
@@ -760,6 +761,7 @@ const App: React.FC = () => {
 
     const loadData = async () => {
       try {
+        await migrateLocalStorageToSupabase();
         const remoteData = await fetchPanelData();
         if (!isMounted) return;
 
