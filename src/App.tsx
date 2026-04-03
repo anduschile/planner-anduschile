@@ -396,7 +396,17 @@ const ProjectsView: React.FC<{
               Aún no tienes proyectos. Crea el primero en el formulario de la derecha.
             </p>
           ) : (
-            <table className="w-full text-xs border-collapse">
+            <table className="w-full table-fixed text-xs border-collapse">
+              <colgroup>
+                <col className="w-[340px]" />
+                <col />
+                <col className="w-[72px]" />
+                <col className="w-[72px]" />
+                <col className="w-[72px]" />
+                <col className="w-[72px]" />
+                <col className="w-[116px]" />
+                <col className="w-[190px]" />
+              </colgroup>
               <thead>
                 <tr className="bg-slate-50">
                   <th className="border px-2 py-1 text-left">Proyecto</th>
@@ -422,7 +432,7 @@ const ProjectsView: React.FC<{
                       )
                     }
                   >
-                    <td className="border px-2 py-1">{p.name}</td>
+                    <td className="border px-2 py-1 break-words">{p.name}</td>
                     <td className="border px-2 py-1">{p.area}</td>
                     <td className="border px-2 py-1 text-center">{p.impact}</td>
                     <td className="border px-2 py-1 text-center">{p.urgency}</td>
@@ -430,11 +440,11 @@ const ProjectsView: React.FC<{
                     <td className="border px-2 py-1 text-center font-semibold">
                       {p.score}
                     </td>
-                    <td className="border px-2 py-1 text-center">
+                    <td className="border px-2 py-1 text-center whitespace-nowrap">
                       {p.status}
                     </td>
                     <td className="border px-2 py-1">
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex flex-wrap items-center justify-center gap-1">
                         <button
                           type="button"
                           onClick={(e) => {
