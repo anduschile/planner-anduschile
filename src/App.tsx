@@ -376,8 +376,8 @@ const ProjectsView: React.FC<{
 
   return (
     <div className="max-w-5xl mx-auto px-4 pb-8">
-      <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
-        <div className="bg-white rounded-lg shadow p-4">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <h2 className="font-semibold text-slate-800">
               Proyectos (ordenados por prioridad)
@@ -396,100 +396,102 @@ const ProjectsView: React.FC<{
               Aún no tienes proyectos. Crea el primero en el formulario de la derecha.
             </p>
           ) : (
-            <table className="w-full table-fixed text-xs border-collapse">
-              <colgroup>
-                <col className="w-[340px]" />
-                <col />
-                <col className="w-[72px]" />
-                <col className="w-[72px]" />
-                <col className="w-[72px]" />
-                <col className="w-[72px]" />
-                <col className="w-[116px]" />
-                <col className="w-[190px]" />
-              </colgroup>
-              <thead>
-                <tr className="bg-slate-50">
-                  <th className="border px-2 py-1 text-left">Proyecto</th>
-                  <th className="border px-2 py-1 text-left">Área</th>
-                  <th className="border px-2 py-1 text-center">Impacto</th>
-                  <th className="border px-2 py-1 text-center">Urgencia</th>
-                  <th className="border px-2 py-1 text-center">Esfuerzo</th>
-                  <th className="border px-2 py-1 text-center">Score</th>
-                  <th className="border px-2 py-1 text-center">Estado</th>
-                  <th className="border px-2 py-1 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {projectsWithScore.map((p) => (
-                  <tr
-                    key={p.id}
-                    className={`cursor-pointer hover:bg-slate-50 ${
-                      selectedProjectId === p.id ? "bg-slate-100" : ""
-                    }`}
-                    onClick={() =>
-                      setSelectedProjectId(
-                        selectedProjectId === p.id ? null : p.id
-                      )
-                    }
-                  >
-                    <td className="border px-2 py-1 break-words">{p.name}</td>
-                    <td className="border px-2 py-1">{p.area}</td>
-                    <td className="border px-2 py-1 text-center">{p.impact}</td>
-                    <td className="border px-2 py-1 text-center">{p.urgency}</td>
-                    <td className="border px-2 py-1 text-center">{p.effort}</td>
-                    <td className="border px-2 py-1 text-center font-semibold">
-                      {p.score}
-                    </td>
-                    <td className="border px-2 py-1 text-center whitespace-nowrap">
-                      {p.status}
-                    </td>
-                    <td className="border px-2 py-1">
-                      <div className="flex flex-wrap items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditProject(p);
-                          }}
-                          className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-200"
-                        >
-                          Editar
-                        </button>
-                        {p.status !== "Archivado" && (
+            <div className="overflow-x-auto">
+              <table className="min-w-[980px] w-full table-auto text-xs border-collapse">
+                <colgroup>
+                  <col className="w-[360px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[80px]" />
+                  <col className="w-[90px]" />
+                  <col className="w-[90px]" />
+                  <col className="w-[80px]" />
+                  <col className="w-[116px]" />
+                  <col className="w-[190px]" />
+                </colgroup>
+                <thead>
+                  <tr className="bg-slate-50">
+                    <th className="border px-3 py-2 text-left">Proyecto</th>
+                    <th className="border px-3 py-2 text-left">Área</th>
+                    <th className="border px-3 py-2 text-center">Impacto</th>
+                    <th className="border px-3 py-2 text-center">Urgencia</th>
+                    <th className="border px-3 py-2 text-center">Esfuerzo</th>
+                    <th className="border px-3 py-2 text-center">Score</th>
+                    <th className="border px-3 py-2 text-center">Estado</th>
+                    <th className="border px-3 py-2 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectsWithScore.map((p) => (
+                    <tr
+                      key={p.id}
+                      className={`cursor-pointer hover:bg-slate-50 ${
+                        selectedProjectId === p.id ? "bg-slate-100" : ""
+                      }`}
+                      onClick={() =>
+                        setSelectedProjectId(
+                          selectedProjectId === p.id ? null : p.id
+                        )
+                      }
+                    >
+                      <td className="border px-3 py-2 break-words">{p.name}</td>
+                      <td className="border px-3 py-2">{p.area}</td>
+                      <td className="border px-3 py-2 text-center">{p.impact}</td>
+                      <td className="border px-3 py-2 text-center">{p.urgency}</td>
+                      <td className="border px-3 py-2 text-center">{p.effort}</td>
+                      <td className="border px-3 py-2 text-center font-semibold">
+                        {p.score}
+                      </td>
+                      <td className="border px-3 py-2 text-center whitespace-nowrap">
+                        {p.status}
+                      </td>
+                      <td className="border px-3 py-2">
+                        <div className="flex flex-wrap items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              void onArchiveProject(p.id);
+                              handleEditProject(p);
                             }}
-                            className="rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-700 hover:bg-amber-100"
+                            className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-200"
                           >
-                            Archivar
+                            Editar
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void onDeleteProject(p);
-                          }}
-                          className="rounded bg-rose-50 px-2 py-1 text-[11px] text-rose-700 hover:bg-rose-100"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          {p.status !== "Archivado" && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void onArchiveProject(p.id);
+                              }}
+                              className="rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-700 hover:bg-amber-100"
+                            >
+                              Archivar
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void onDeleteProject(p);
+                            }}
+                            className="rounded bg-rose-50 px-2 py-1 text-[11px] text-rose-700 hover:bg-rose-100"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <p className="text-[11px] text-slate-500 mt-2">
             Score sugerido: impacto × 2 + urgencia − esfuerzo.
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-white rounded-lg shadow p-4 xl:w-[360px] xl:min-w-[360px]">
           <h2 className="font-semibold text-slate-800 mb-3">
             {editingProjectId ? "Editar proyecto" : "Nuevo proyecto"}
           </h2>
