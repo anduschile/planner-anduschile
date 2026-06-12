@@ -15,6 +15,9 @@ import {
   getSupabaseConfigError,
   isSupabaseConfigured,
 } from "./lib/supabase";
+import { useAuth } from "./lib/useAuth";
+import LoginPage from "./pages/LoginPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 import type {
   AppState,
   Area,
@@ -50,7 +53,9 @@ type View = "projects" | "today" | "ideas" | "reviews";
 const NavBar: React.FC<{
   currentView: View;
   onChangeView: (v: View) => void;
-}> = ({ currentView, onChangeView }) => {
+  userEmail?: string;
+  onLogout?: () => Promise<void>;
+}> = ({ currentView, onChangeView, userEmail, onLogout }) => {
   const labels: Record<View, string> = {
     projects: "Proyectos",
     today: "Hoy",
@@ -59,14 +64,25 @@ const NavBar: React.FC<{
   };
 
   const views: View[] = ["projects", "today", "ideas", "reviews"];
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (!onLogout) return;
+    setIsLoggingOut(true);
+    try {
+      await onLogout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <nav className="bg-white shadow mb-4">
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <div className="font-semibold text-slate-800">
           Panel de Dirección Personal
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-1 justify-center flex-wrap">
           {views.map((v) => (
             <button
               key={v}
@@ -81,6 +97,20 @@ const NavBar: React.FC<{
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-3 whitespace-nowrap">
+          {userEmail && (
+            <>
+              <span className="text-xs text-slate-600">{userEmail}</span>
+              <button
+                onClick={() => void handleLogout()}
+                disabled={isLoggingOut}
+                className="px-3 py-1 rounded-md text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-60 transition-colors"
+              >
+                {isLoggingOut ? "..." : "Cerrar sesión"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </nav>
   );
@@ -90,8 +120,9 @@ const ProjectDailyLog: React.FC<{
   project: Project;
   logs: DailyLog[];
   today: string;
+  userId: string;
   onSaveLog: (log: DailyLog) => Promise<void>;
-}> = ({ project, logs, today, onSaveLog }) => {
+}> = ({ project, logs, today, userId, onSaveLog }) => {
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -117,6 +148,7 @@ const ProjectDailyLog: React.FC<{
   const handleSave = async () => {
     const base: DailyLog = logForDate ?? {
       id: "",
+      userId,
       projectId: project.id,
       date: selectedDate,
       summaryToday: "",
@@ -274,6 +306,7 @@ const ProjectsView: React.FC<{
   projects: Project[];
   dailyLogs: DailyLog[];
   today: string;
+  userId: string;
   onAddProject: (input: NewProjectInput) => Promise<void>;
   onUpdateProject: (projectId: string, input: NewProjectInput) => Promise<void>;
   onArchiveProject: (projectId: string) => Promise<void>;
@@ -282,6 +315,7 @@ const ProjectsView: React.FC<{
   computeScore: (p: Project) => number;
 }> = ({
   projects,
+  userId,
   dailyLogs,
   today,
   onAddProject,
@@ -631,6 +665,7 @@ const ProjectsView: React.FC<{
           project={selectedProject}
           logs={dailyLogs.filter((l) => l.projectId === selectedProject.id)}
           today={today}
+          userId={userId}
           onSaveLog={onSaveDailyLog}
         />
       )}
@@ -852,6 +887,7 @@ const computeScore = (project: Project): number =>
   project.impact * 2 + project.urgency - project.effort;
 
 const App: React.FC = () => {
+  const { session, user, loading: authLoading, signInWithPassword, signOut } = useAuth();
   const [state, setState] = useState<AppState>(emptyState);
   const [currentView, setCurrentView] = useState<View>("projects");
   const [isLoading, setIsLoading] = useState(true);
@@ -859,8 +895,30 @@ const App: React.FC = () => {
     getSupabaseConfigError()
   );
 
+  // Manejar callback de autenticación
   useEffect(() => {
-    if (!isSupabaseConfigured) {
+    const handleAuthCallback = () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const error = params.get("error");
+
+      if (code) {
+        // Supabase ya manejó el callback en onAuthStateChange
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      if (error) {
+        setSyncError(`Error de autenticación: ${error}`);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+
+    handleAuthCallback();
+  }, []);
+
+  // Cargar datos cuando el usuario está autenticado
+  useEffect(() => {
+    if (!user || !isSupabaseConfigured) {
       setIsLoading(false);
       return;
     }
@@ -869,8 +927,10 @@ const App: React.FC = () => {
 
     const loadData = async () => {
       try {
-        await migrateLocalStorageToSupabase();
-        const remoteData = await fetchPanelData();
+        // Migrar datos locales si es la primera vez de este usuario
+        await migrateLocalStorageToSupabase(user.id);
+
+        const remoteData = await fetchPanelData(user.id);
         if (!isMounted) return;
 
         setState((prev) => ({
@@ -897,13 +957,15 @@ const App: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   const today = getToday();
 
   const handleAddProject = async (input: NewProjectInput) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
     try {
-      const project = await createProject(input);
+      const project = await createProject(input, user.id);
       setState((prev) => ({
         ...prev,
         projects: [...prev.projects, project],
@@ -924,8 +986,10 @@ const App: React.FC = () => {
     projectId: string,
     input: NewProjectInput
   ) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
     try {
-      const updatedProject = await persistProjectUpdate(projectId, input);
+      const updatedProject = await persistProjectUpdate(projectId, input, user.id);
       setState((prev) => ({
         ...prev,
         projects: prev.projects.map((project) =>
@@ -960,10 +1024,12 @@ const App: React.FC = () => {
   };
 
   const handleDeleteProject = async (project: Project) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
     let counts: ProjectDependencyCounts;
 
     try {
-      counts = await getProjectDependencyCounts(project.id);
+      counts = await getProjectDependencyCounts(project.id, user.id);
     } catch (error) {
       const message = getErrorMessage(
         error,
@@ -989,7 +1055,7 @@ const App: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      await removeProject(project.id);
+      await removeProject(project.id, user.id);
       setState((prev) => ({
         ...prev,
         projects: prev.projects.filter((item) => item.id !== project.id),
@@ -1007,8 +1073,10 @@ const App: React.FC = () => {
   };
 
   const handleSaveDailyLog = async (log: DailyLog) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
     try {
-      const savedLog = await saveDailyLog(log);
+      const savedLog = await saveDailyLog(log, user.id);
       setState((prev) => {
         const existingIndex = prev.dailyLogs.findIndex(
           (item) =>
@@ -1042,8 +1110,10 @@ const App: React.FC = () => {
     projectId?: string;
     isKey: boolean;
   }) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
     try {
-      const task = await createTask(input);
+      const task = await createTask(input, user.id);
       setState((prev) => ({
         ...prev,
         tasks: [...prev.tasks, task],
@@ -1061,8 +1131,10 @@ const App: React.FC = () => {
   };
 
   const handleUpdateTaskStatus = async (taskId: string, status: TaskStatus) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
     try {
-      const updatedTask = await persistTaskStatus(taskId, status);
+      const updatedTask = await persistTaskStatus(taskId, status, user.id);
       setState((prev) => ({
         ...prev,
         tasks: prev.tasks.map((task) =>
@@ -1081,9 +1153,33 @@ const App: React.FC = () => {
     }
   };
 
+  // Mostrar página de login si no está autenticado
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-slate-600">Cargando autenticación...</div>
+      </div>
+    );
+  }
+
+  if (!session || !user) {
+    return <LoginPage onSignInWithPassword={signInWithPassword} />;
+  }
+
+  // Mostrar callback page si está en la URL de callback
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("code") || params.has("error")) {
+    return <AuthCallbackPage />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
-      <NavBar currentView={currentView} onChangeView={setCurrentView} />
+      <NavBar
+        currentView={currentView}
+        onChangeView={setCurrentView}
+        userEmail={user.email}
+        onLogout={signOut}
+      />
       {syncError && (
         <div className="max-w-5xl mx-auto w-full px-4 mb-4">
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -1105,6 +1201,7 @@ const App: React.FC = () => {
                 projects={state.projects}
                 dailyLogs={state.dailyLogs}
                 today={today}
+                userId={user!.id}
                 onAddProject={handleAddProject}
                 onUpdateProject={handleUpdateProject}
                 onArchiveProject={handleArchiveProject}

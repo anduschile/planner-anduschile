@@ -5,6 +5,7 @@ interface ProjectDailyLogProps {
   project: Project;
   logs: DailyLog[];
   today: string;
+  userId: string;
   onSaveLog: (log: DailyLog) => void;
 }
 
@@ -12,6 +13,7 @@ export const ProjectDailyLog: React.FC<ProjectDailyLogProps> = ({
   project,
   logs,
   today,
+  userId,
   onSaveLog,
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(today);
@@ -38,6 +40,7 @@ export const ProjectDailyLog: React.FC<ProjectDailyLogProps> = ({
   const handleSave = () => {
     const base: DailyLog = logForDate ?? {
       id: "", // lo completará el padre si hace falta
+      userId,
       projectId: project.id,
       date: selectedDate,
       summaryToday: "",

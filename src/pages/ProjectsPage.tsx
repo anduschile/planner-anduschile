@@ -5,6 +5,7 @@ interface ProjectsPageProps {
   projects: Project[];
   dailyLogs: DailyLog[];
   today: string;
+  userId: string;
   onAddProject: (input: NewProjectInput) => void;
   onSaveDailyLog: (log: DailyLog) => void;
   computeScore: (project: Project) => number;
@@ -16,6 +17,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   projects,
   dailyLogs,
   today,
+  userId,
   onAddProject,
   onSaveDailyLog,
   computeScore,
@@ -241,6 +243,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           project={selectedProject}
           logs={dailyLogs.filter((l) => l.projectId === selectedProject.id)}
           today={today}
+          userId={userId}
           onSaveLog={onSaveDailyLog}
         />
       )}

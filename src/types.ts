@@ -8,6 +8,7 @@ export type ReviewType = "semanal" | "mensual";
 
 export interface Project {
   id: string;
+  userId: string;
   name: string;
   area: Area;
   objective: string;
@@ -20,6 +21,7 @@ export interface Project {
 
 export interface Task {
   id: string;
+  userId: string;
   projectId?: string;
   title: string;
   date: string;       // "2025-12-05"
@@ -40,6 +42,7 @@ export interface Idea {
 
 export interface DailyLog {
   id: string;
+  userId: string;
   projectId: string;
   date: string;       // "YYYY-MM-DD"
   summaryToday: string;   // En qué quedé hoy

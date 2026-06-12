@@ -11,6 +11,7 @@ import type {
 type ProjectRow = {
   id: string;
   created_at: string;
+  user_id: string;
   name: string;
   area: Project["area"];
   objective: string;
@@ -23,6 +24,7 @@ type ProjectRow = {
 type TaskRow = {
   id: string;
   created_at: string;
+  user_id: string;
   project_id: string | null;
   title: string;
   task_date: string;
@@ -33,6 +35,7 @@ type TaskRow = {
 type DailyLogRow = {
   id: string;
   created_at: string;
+  user_id: string;
   project_id: string;
   log_date: string;
   summary_today: string;
@@ -58,15 +61,16 @@ type PanelData = {
 };
 
 const projectSelect =
-  "id, created_at, name, area, objective, impact, urgency, effort, status";
+  "id, created_at, user_id, name, area, objective, impact, urgency, effort, status";
 const taskSelect =
-  "id, created_at, project_id, title, task_date, is_key, status";
+  "id, created_at, user_id, project_id, title, task_date, is_key, status";
 const dailyLogSelect =
-  "id, created_at, project_id, log_date, summary_today, next_session, later_pending, decisions, ai_prompt";
+  "id, created_at, user_id, project_id, log_date, summary_today, next_session, later_pending, decisions, ai_prompt";
 
 function mapProject(row: ProjectRow): Project {
   return {
     id: row.id,
+    userId: row.user_id,
     createdAt: row.created_at,
     name: row.name,
     area: row.area,
@@ -81,6 +85,7 @@ function mapProject(row: ProjectRow): Project {
 function mapTask(row: TaskRow): Task {
   return {
     id: row.id,
+    userId: row.user_id,
     projectId: row.project_id ?? undefined,
     title: row.title,
     date: row.task_date,
@@ -92,6 +97,7 @@ function mapTask(row: TaskRow): Task {
 function mapDailyLog(row: DailyLogRow): DailyLog {
   return {
     id: row.id,
+    userId: row.user_id,
     projectId: row.project_id,
     date: row.log_date,
     summaryToday: row.summary_today,
@@ -102,14 +108,14 @@ function mapDailyLog(row: DailyLogRow): DailyLog {
   };
 }
 
-export async function fetchPanelData(): Promise<PanelData> {
+export async function fetchPanelData(userId: string): Promise<PanelData> {
   const supabase = getSupabaseClient();
 
   const [{ data: projectRows, error: projectsError }, { data: taskRows, error: tasksError }, { data: dailyLogRows, error: dailyLogsError }] =
     await Promise.all([
-      supabase.from("binn_projects").select(projectSelect).order("created_at", { ascending: true }),
-      supabase.from("binn_tasks").select(taskSelect).order("task_date", { ascending: true }).order("created_at", { ascending: true }),
-      supabase.from("binn_daily_logs").select(dailyLogSelect).order("log_date", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from("binn_projects").select(projectSelect).eq("user_id", userId).order("created_at", { ascending: true }),
+      supabase.from("binn_tasks").select(taskSelect).eq("user_id", userId).order("task_date", { ascending: true }).order("created_at", { ascending: true }),
+      supabase.from("binn_daily_logs").select(dailyLogSelect).eq("user_id", userId).order("log_date", { ascending: false }).order("created_at", { ascending: false }),
     ]);
 
   if (projectsError) throw projectsError;
@@ -123,12 +129,13 @@ export async function fetchPanelData(): Promise<PanelData> {
   };
 }
 
-export async function createProject(input: NewProjectInput): Promise<Project> {
+export async function createProject(input: NewProjectInput, userId: string): Promise<Project> {
   const supabase = getSupabaseClient();
 
   const { data, error } = await supabase
     .from("binn_projects")
     .insert({
+      user_id: userId,
       name: input.name,
       area: input.area,
       objective: input.objective,
@@ -147,7 +154,8 @@ export async function createProject(input: NewProjectInput): Promise<Project> {
 
 export async function updateProject(
   projectId: string,
-  input: NewProjectInput
+  input: NewProjectInput,
+  userId: string
 ): Promise<Project> {
   const supabase = getSupabaseClient();
 
@@ -163,6 +171,7 @@ export async function updateProject(
       status: input.status,
     })
     .eq("id", projectId)
+    .eq("user_id", userId)
     .select(projectSelect)
     .single();
 
@@ -172,7 +181,8 @@ export async function updateProject(
 }
 
 export async function getProjectDependencyCounts(
-  projectId: string
+  projectId: string,
+  userId: string
 ): Promise<ProjectDependencyCounts> {
   const supabase = getSupabaseClient();
 
@@ -181,11 +191,13 @@ export async function getProjectDependencyCounts(
       supabase
         .from("binn_tasks")
         .select("*", { count: "exact", head: true })
-        .eq("project_id", projectId),
+        .eq("project_id", projectId)
+        .eq("user_id", userId),
       supabase
         .from("binn_daily_logs")
         .select("*", { count: "exact", head: true })
-        .eq("project_id", projectId),
+        .eq("project_id", projectId)
+        .eq("user_id", userId),
     ]);
 
   if (tasksError) throw tasksError;
@@ -197,23 +209,25 @@ export async function getProjectDependencyCounts(
   };
 }
 
-export async function deleteProject(projectId: string): Promise<void> {
+export async function deleteProject(projectId: string, userId: string): Promise<void> {
   const supabase = getSupabaseClient();
 
   const { error } = await supabase
     .from("binn_projects")
     .delete()
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .eq("user_id", userId);
 
   if (error) throw error;
 }
 
-export async function createTask(input: NewTaskInput): Promise<Task> {
+export async function createTask(input: NewTaskInput, userId: string): Promise<Task> {
   const supabase = getSupabaseClient();
 
   const { data, error } = await supabase
     .from("binn_tasks")
     .insert({
+      user_id: userId,
       title: input.title,
       task_date: input.date,
       project_id: input.projectId ?? null,
@@ -228,13 +242,14 @@ export async function createTask(input: NewTaskInput): Promise<Task> {
   return mapTask(data as TaskRow);
 }
 
-export async function updateTaskStatus(taskId: string, status: TaskStatus): Promise<Task> {
+export async function updateTaskStatus(taskId: string, status: TaskStatus, userId: string): Promise<Task> {
   const supabase = getSupabaseClient();
 
   const { data, error } = await supabase
     .from("binn_tasks")
     .update({ status })
     .eq("id", taskId)
+    .eq("user_id", userId)
     .select(taskSelect)
     .single();
 
@@ -243,11 +258,12 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus): Prom
   return mapTask(data as TaskRow);
 }
 
-export async function saveDailyLog(input: SaveDailyLogInput): Promise<DailyLog> {
+export async function saveDailyLog(input: SaveDailyLogInput, userId: string): Promise<DailyLog> {
   const supabase = getSupabaseClient();
 
   const payload = {
     id: input.id || undefined,
+    user_id: userId,
     project_id: input.projectId,
     log_date: input.date,
     summary_today: input.summaryToday,
@@ -259,7 +275,7 @@ export async function saveDailyLog(input: SaveDailyLogInput): Promise<DailyLog> 
 
   const { data, error } = await supabase
     .from("binn_daily_logs")
-    .upsert(payload, { onConflict: "project_id,log_date" })
+    .upsert(payload, { onConflict: "user_id,project_id,log_date" })
     .select(dailyLogSelect)
     .single();
 

@@ -100,13 +100,14 @@ function dedupeDailyLogs(items: DailyLog[]): DailyLog[] {
   );
 }
 
-async function migrateProjects(projects: Project[]): Promise<number> {
+async function migrateProjects(projects: Project[], userId: string): Promise<number> {
   if (projects.length === 0) return 0;
 
   const supabase = getSupabaseClient();
   const payload = projects.map((project) => ({
     id: project.id,
     created_at: project.createdAt,
+    user_id: userId,
     name: project.name,
     area: project.area,
     objective: project.objective,
@@ -125,12 +126,13 @@ async function migrateProjects(projects: Project[]): Promise<number> {
   return payload.length;
 }
 
-async function migrateTasks(tasks: Task[]): Promise<number> {
+async function migrateTasks(tasks: Task[], userId: string): Promise<number> {
   if (tasks.length === 0) return 0;
 
   const supabase = getSupabaseClient();
   const payload = tasks.map((task) => ({
     id: task.id,
+    user_id: userId,
     title: task.title,
     task_date: task.date,
     project_id: task.projectId ?? null,
@@ -147,25 +149,26 @@ async function migrateTasks(tasks: Task[]): Promise<number> {
   return payload.length;
 }
 
-async function migrateDailyLogs(dailyLogs: DailyLog[]): Promise<number> {
+async function migrateDailyLogs(dailyLogs: DailyLog[], userId: string): Promise<number> {
   if (dailyLogs.length === 0) return 0;
 
   const supabase = getSupabaseClient();
   const { data: existingRows, error: existingError } = await supabase
     .from("binn_daily_logs")
-    .select("id, project_id, log_date");
+    .select("id, user_id, project_id, log_date");
 
   if (existingError) throw existingError;
 
   const existingByComposite = new Map(
-    (existingRows ?? []).map((row) => [`${row.project_id}::${row.log_date}`, row.id])
+    (existingRows ?? []).map((row) => [`${row.user_id}::${row.project_id}::${row.log_date}`, row.id])
   );
 
   const payload = dailyLogs.map((log) => {
-    const existingId = existingByComposite.get(`${log.projectId}::${log.date}`);
+    const existingId = existingByComposite.get(`${userId}::${log.projectId}::${log.date}`);
 
     return {
       id: existingId ?? log.id,
+      user_id: userId,
       project_id: log.projectId,
       log_date: log.date,
       summary_today: log.summaryToday,
@@ -178,7 +181,7 @@ async function migrateDailyLogs(dailyLogs: DailyLog[]): Promise<number> {
 
   const { error } = await supabase
     .from("binn_daily_logs")
-    .upsert(payload, { onConflict: "project_id,log_date" });
+    .upsert(payload, { onConflict: "user_id,project_id,log_date" });
 
   if (error) throw error;
 
@@ -191,7 +194,7 @@ export function hasCompletedSupabaseMigration(): boolean {
   return window.localStorage.getItem(MIGRATION_KEY) === "true";
 }
 
-export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> {
+export async function migrateLocalStorageToSupabase(userId: string): Promise<MigrationResult> {
   if (typeof window === "undefined") {
     return {
       attempted: false,
@@ -205,7 +208,9 @@ export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> 
     };
   }
 
-  if (hasCompletedSupabaseMigration()) {
+  const userMigrationKey = `${MIGRATION_KEY}:${userId}`;
+
+  if (window.localStorage.getItem(userMigrationKey) === "true") {
     return {
       attempted: false,
       skippedReason: "already-migrated",
@@ -218,7 +223,7 @@ export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> 
     };
   }
 
-  console.log("[migration] starting localStorage -> Supabase migration");
+  console.log("[migration] starting localStorage -> Supabase migration for user:", userId);
 
   const localState = parseLocalState(window.localStorage.getItem(STORAGE_KEY));
   if (!localState) {
@@ -256,21 +261,21 @@ export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> 
   };
 
   try {
-    result.projectsMigrated = await migrateProjects(projects);
+    result.projectsMigrated = await migrateProjects(projects, userId);
     console.log("[migration] projects migrated:", result.projectsMigrated);
   } catch (error) {
     console.error("[migration] projects migration failed:", error);
   }
 
   try {
-    result.tasksMigrated = await migrateTasks(tasks);
+    result.tasksMigrated = await migrateTasks(tasks, userId);
     console.log("[migration] tasks migrated:", result.tasksMigrated);
   } catch (error) {
     console.error("[migration] tasks migration failed:", error);
   }
 
   try {
-    result.dailyLogsMigrated = await migrateDailyLogs(dailyLogs);
+    result.dailyLogsMigrated = await migrateDailyLogs(dailyLogs, userId);
     console.log("[migration] daily logs migrated:", result.dailyLogsMigrated);
   } catch (error) {
     console.error("[migration] daily logs migration failed:", error);
@@ -281,8 +286,8 @@ export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> 
     result.tasksMigrated === result.tasksFound &&
     result.dailyLogsMigrated === result.dailyLogsFound
   ) {
-    window.localStorage.setItem(MIGRATION_KEY, "true");
-    console.log("[migration] migration completed successfully");
+    window.localStorage.setItem(userMigrationKey, "true");
+    console.log("[migration] migration completed successfully for user:", userId);
   } else {
     console.warn("[migration] migration completed with pending items", result);
   }
