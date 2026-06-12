@@ -1,13 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./index.css";
 import {
+  createIdea,
   createProject,
+  createReview,
   createTask,
+  createTaskTemplate,
+  deleteIdea,
   deleteProject as removeProject,
+  deleteReview,
+  deleteTask,
+  deleteTaskTemplate,
   fetchPanelData,
+  fetchTaskTemplates,
   getProjectDependencyCounts,
   saveDailyLog,
+  updateIdea,
   updateProject as persistProjectUpdate,
+  updateReview,
+  updateTask,
   updateTaskStatus as persistTaskStatus,
 } from "./lib/panelData";
 import { migrateLocalStorageToSupabase } from "./lib/migration";
@@ -22,12 +33,16 @@ import type {
   AppState,
   Area,
   DailyLog,
+  Idea,
   NewProjectInput,
   Project,
   ProjectDependencyCounts,
   ProjectStatus,
+  Review,
+  ReviewType,
   Task,
   TaskStatus,
+  TaskTemplate,
 } from "./types";
 
 function emptyState(): AppState {
@@ -37,6 +52,7 @@ function emptyState(): AppState {
     ideas: [],
     dailyLogs: [],
     reviews: [],
+    taskTemplates: [],
   };
 }
 
@@ -304,6 +320,7 @@ const ProjectDailyLog: React.FC<{
 
 const ProjectsView: React.FC<{
   projects: Project[];
+  tasks: Task[];
   dailyLogs: DailyLog[];
   today: string;
   userId: string;
@@ -315,6 +332,7 @@ const ProjectsView: React.FC<{
   computeScore: (p: Project) => number;
 }> = ({
   projects,
+  tasks,
   userId,
   dailyLogs,
   today,
@@ -430,91 +448,155 @@ const ProjectsView: React.FC<{
               Aún no tienes proyectos. Crea el primero en el formulario de abajo.
             </p>
           ) : (
-            <div className="overflow-x-auto xl:overflow-visible">
-              <table className="w-full table-auto text-sm border-collapse">
-                <thead>
-                  <tr className="bg-slate-50">
-                    <th className="border px-3 py-2 text-left">Proyecto</th>
-                    <th className="border px-3 py-2 text-left">Área</th>
-                    <th className="border px-3 py-2 text-center">Impacto</th>
-                    <th className="border px-3 py-2 text-center">Urgencia</th>
-                    <th className="border px-3 py-2 text-center">Esfuerzo</th>
-                    <th className="border px-3 py-2 text-center">Score</th>
-                    <th className="border px-3 py-2 text-center">Estado</th>
-                    <th className="border px-3 py-2 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projectsWithScore.map((p) => (
-                    <tr
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {projectsWithScore.map((p) => {
+                  const statusColors: Record<string, { badge: string; border: string }> = {
+                    "En marcha": { badge: "bg-green-100 text-green-800", border: "border-green-200" },
+                    "Idea": { badge: "bg-blue-100 text-blue-800", border: "border-blue-200" },
+                    "Pausado": { badge: "bg-gray-100 text-gray-800", border: "border-gray-200" },
+                    "Cerrado": { badge: "bg-red-100 text-red-800", border: "border-red-200" },
+                    "Archivado": { badge: "bg-yellow-100 text-yellow-800", border: "border-yellow-200" },
+                  };
+                  const colors = statusColors[p.status] || statusColors["Idea"];
+
+                  const getProgressColor = (value: number) => {
+                    if (value <= 2) return "bg-blue-400";
+                    if (value <= 3) return "bg-yellow-400";
+                    return "bg-orange-500";
+                  };
+
+                  return (
+                    <div
                       key={p.id}
-                      className={`cursor-pointer hover:bg-slate-50 ${
-                        selectedProjectId === p.id ? "bg-slate-100" : ""
-                      }`}
+                      className={`rounded-lg border-2 p-4 cursor-pointer transition-all ${colors.border} ${
+                        selectedProjectId === p.id ? "bg-slate-50" : "bg-white"
+                      } hover:shadow-md`}
                       onClick={() =>
                         setSelectedProjectId(
                           selectedProjectId === p.id ? null : p.id
                         )
                       }
                     >
-                      <td className="border px-3 py-2 min-w-[320px] max-w-[420px] break-words">
-                        {p.name}
-                      </td>
-                      <td className="border px-3 py-2 whitespace-nowrap">{p.area}</td>
-                      <td className="border px-3 py-2 text-center whitespace-nowrap">{p.impact}</td>
-                      <td className="border px-3 py-2 text-center whitespace-nowrap">{p.urgency}</td>
-                      <td className="border px-3 py-2 text-center whitespace-nowrap">{p.effort}</td>
-                      <td className="border px-3 py-2 text-center font-semibold whitespace-nowrap">
-                        {p.score}
-                      </td>
-                      <td className="border px-3 py-2 text-center whitespace-nowrap">
-                        {p.status}
-                      </td>
-                      <td className="border px-3 py-2 whitespace-nowrap">
-                        <div className="flex flex-wrap items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditProject(p);
-                            }}
-                            className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-200"
-                          >
-                            Editar
-                          </button>
-                          {p.status !== "Archivado" && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void onArchiveProject(p.id);
-                              }}
-                              className="rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-700 hover:bg-amber-100"
-                            >
-                              Archivar
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void onDeleteProject(p);
-                            }}
-                            className="rounded bg-rose-50 px-2 py-1 text-[11px] text-rose-700 hover:bg-rose-100"
-                          >
-                            Eliminar
-                          </button>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-slate-800 break-words text-sm">{p.name}</h3>
+                          <p className="text-xs text-slate-600 mt-1">{p.objective}</p>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${colors.badge}`}>
+                          {p.status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between mb-3 text-xs">
+                        <span className="text-slate-600">Área: <span className="font-semibold">{p.area}</span></span>
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-slate-600">Impacto</span>
+                            <span className="text-xs font-semibold text-slate-800">{p.impact}/5</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full ${getProgressColor(p.impact)}`}
+                              style={{ width: `${(p.impact / 5) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-slate-600">Urgencia</span>
+                            <span className="text-xs font-semibold text-slate-800">{p.urgency}/5</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full ${getProgressColor(p.urgency)}`}
+                              style={{ width: `${(p.urgency / 5) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-slate-600">Esfuerzo</span>
+                            <span className="text-xs font-semibold text-slate-800">{p.effort}/5</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full ${getProgressColor(p.effort)}`}
+                              style={{ width: `${(p.effort / 5) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 mb-4 p-3 bg-slate-50 rounded">
+                        <div>
+                          <div className="text-xs text-slate-600">Prioridad</div>
+                          <div className="text-2xl font-bold text-slate-800">{p.score}</div>
+                        </div>
+                        <div className="flex gap-3">
+                          <div className="text-center">
+                            <div className="text-xs text-slate-600">Tareas</div>
+                            <div className="text-lg font-semibold text-slate-800">
+                              {tasks.filter((t) => t.projectId === p.id).length}
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs text-slate-600">Bitácoras</div>
+                            <div className="text-lg font-semibold text-slate-800">
+                              {dailyLogs.filter((l) => l.projectId === p.id).length}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditProject(p);
+                          }}
+                          className="flex-1 rounded bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+                        >
+                          Editar
+                        </button>
+                        {p.status !== "Archivado" && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void onArchiveProject(p.id);
+                            }}
+                            className="flex-1 rounded bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+                          >
+                            Archivar
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onDeleteProject(p);
+                          }}
+                          className="flex-1 rounded bg-rose-50 px-2 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-4">
+                Score sugerido: impacto × 2 + urgencia − esfuerzo.
+              </p>
+            </>
           )}
-          <p className="text-[11px] text-slate-500 mt-2">
-            Score sugerido: impacto × 2 + urgencia − esfuerzo.
-          </p>
         </div>
 
         <div className="w-full bg-white rounded-lg shadow p-4 xl:w-[360px] xl:min-w-[360px]">
@@ -673,10 +755,463 @@ const ProjectsView: React.FC<{
   );
 };
 
+const IdeasView: React.FC<{
+  ideas: Idea[];
+  projects: Project[];
+  onAddIdea: (input: Omit<Idea, "id" | "userId" | "createdAt">) => Promise<void>;
+  onUpdateIdea: (ideaId: string, input: Omit<Idea, "id" | "userId" | "createdAt">) => Promise<void>;
+  onDeleteIdea: (ideaId: string) => Promise<void>;
+}> = ({ ideas, projects, onAddIdea, onUpdateIdea, onDeleteIdea }) => {
+  const [form, setForm] = useState<Omit<Idea, "id" | "userId" | "createdAt">>({
+    title: "",
+    description: "",
+    impact: 3,
+    effort: 3,
+    linkedProjectId: undefined,
+    state: "Idea",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setForm({
+      title: "",
+      description: "",
+      impact: 3,
+      effort: 3,
+      linkedProjectId: undefined,
+      state: "Idea",
+    });
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.description.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        await onUpdateIdea(editingId, form);
+      } else {
+        await onAddIdea(form);
+      }
+      resetForm();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = (idea: Idea) => {
+    setEditingId(idea.id);
+    setForm({
+      title: idea.title,
+      description: idea.description,
+      impact: idea.impact,
+      effort: idea.effort,
+      linkedProjectId: idea.linkedProjectId,
+      state: idea.state,
+    });
+  };
+
+  const stateColors: Record<Idea["state"], string> = {
+    "Idea": "bg-blue-100 text-blue-800",
+    "A evaluar": "bg-yellow-100 text-yellow-800",
+    "Aprobada": "bg-green-100 text-green-800",
+    "Descartada": "bg-gray-100 text-gray-800",
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 pb-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="min-w-0 bg-white rounded-lg shadow p-4">
+          <h2 className="font-semibold text-slate-800 mb-4">
+            Ideas ({ideas.length})
+          </h2>
+          {ideas.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              Aún no tienes ideas. Crea la primera en el formulario.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {ideas.map((idea) => (
+                <div
+                  key={idea.id}
+                  className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-slate-800 break-words">{idea.title}</h3>
+                      <p className="text-sm text-slate-600 mt-1 line-clamp-2">{idea.description}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${stateColors[idea.state]}`}>
+                      {idea.state}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-600 mb-3">
+                    <div className="flex gap-4">
+                      <span>Impacto: <span className="font-semibold text-slate-800">{idea.impact}/5</span></span>
+                      <span>Esfuerzo: <span className="font-semibold text-slate-800">{idea.effort}/5</span></span>
+                    </div>
+                  </div>
+
+                  {idea.linkedProjectId && (
+                    <div className="text-xs text-slate-600 mb-3">
+                      <span>Proyecto: <span className="font-semibold">{projects.find((p) => p.id === idea.linkedProjectId)?.name || "No encontrado"}</span></span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(idea)}
+                      className="flex-1 rounded bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void onDeleteIdea(idea.id)}
+                      className="flex-1 rounded bg-rose-50 px-2 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 transition-colors"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-full bg-white rounded-lg shadow p-4 lg:w-[320px] lg:min-w-[320px]">
+          <h2 className="font-semibold text-slate-800 mb-3">
+            {editingId ? "Editar idea" : "Nueva idea"}
+          </h2>
+          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3 text-sm">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Título
+              </label>
+              <input
+                type="text"
+                className="w-full border rounded px-2 py-1"
+                value={form.title}
+                onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Nombre de la idea"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Descripción
+              </label>
+              <textarea
+                className="w-full border rounded px-2 py-1 min-h-[60px]"
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe tu idea..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Impacto (1–5)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                className="w-full border rounded px-2 py-1"
+                value={form.impact}
+                onChange={(e) => setForm((prev) => ({ ...prev, impact: Math.min(5, Math.max(1, Number(e.target.value))) }))}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Esfuerzo (1–5)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                className="w-full border rounded px-2 py-1"
+                value={form.effort}
+                onChange={(e) => setForm((prev) => ({ ...prev, effort: Math.min(5, Math.max(1, Number(e.target.value))) }))}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Estado
+              </label>
+              <select
+                className="w-full border rounded px-2 py-1"
+                value={form.state}
+                onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value as Idea["state"] }))}
+              >
+                <option value="Idea">Idea</option>
+                <option value="A evaluar">A evaluar</option>
+                <option value="Aprobada">Aprobada</option>
+                <option value="Descartada">Descartada</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Proyecto relacionado (opcional)
+              </label>
+              <select
+                className="w-full border rounded px-2 py-1"
+                value={form.linkedProjectId || ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, linkedProjectId: e.target.value || undefined }))}
+              >
+                <option value="">Sin proyecto</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-1.5 rounded bg-slate-100 text-slate-700 text-sm hover:bg-slate-200"
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-1.5 rounded bg-slate-900 text-white text-sm hover:bg-slate-800 disabled:opacity-60"
+              >
+                {isSubmitting ? "..." : (editingId ? "Actualizar" : "Crear")}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ReviewsView: React.FC<{
+  reviews: Review[];
+  onAddReview: (input: Omit<Review, "id" | "userId" | "createdAt">) => Promise<void>;
+  onUpdateReview: (reviewId: string, input: Omit<Review, "id" | "userId" | "createdAt">) => Promise<void>;
+  onDeleteReview: (reviewId: string) => Promise<void>;
+}> = ({ reviews, onAddReview, onUpdateReview, onDeleteReview }) => {
+  const [form, setForm] = useState<Omit<Review, "id" | "userId" | "createdAt">>({
+    date: new Date().toISOString().split("T")[0],
+    type: "semanal",
+    notes: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setForm({
+      date: new Date().toISOString().split("T")[0],
+      type: "semanal",
+      notes: "",
+    });
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.date.trim() || !form.notes.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        await onUpdateReview(editingId, form);
+      } else {
+        await onAddReview(form);
+      }
+      resetForm();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = (review: Review) => {
+    setEditingId(review.id);
+    setForm({
+      date: review.date,
+      type: review.type,
+      notes: review.notes,
+    });
+  };
+
+  const typeLabels: Record<ReviewType, string> = {
+    semanal: "Revisión Semanal",
+    mensual: "Revisión Mensual",
+  };
+
+  const typeColors: Record<ReviewType, string> = {
+    semanal: "bg-blue-100 text-blue-800",
+    mensual: "bg-purple-100 text-purple-800",
+  };
+
+  const reviewsByType = reviews.reduce((acc, review) => {
+    if (!acc[review.type]) acc[review.type] = [];
+    acc[review.type].push(review);
+    return acc;
+  }, {} as Record<ReviewType, Review[]>);
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 pb-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="min-w-0 bg-white rounded-lg shadow p-4">
+          <h2 className="font-semibold text-slate-800 mb-4">
+            Revisiones ({reviews.length})
+          </h2>
+          {reviews.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              Aún no tienes revisiones. Crea la primera en el formulario.
+            </p>
+          ) : (
+            <div className="space-y-6">
+              {(["semanal", "mensual"] as const).map((type) => {
+                const typeReviews = reviewsByType[type] || [];
+                if (typeReviews.length === 0) return null;
+
+                return (
+                  <div key={type}>
+                    <h3 className="font-semibold text-slate-700 mb-3 text-sm">
+                      {typeLabels[type]}
+                    </h3>
+                    <div className="space-y-3">
+                      {typeReviews.map((review) => (
+                        <div
+                          key={review.id}
+                          className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold text-slate-800">
+                                  {new Date(review.date).toLocaleDateString("es-ES", {
+                                    weekday: "long",
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  })}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{review.notes}</p>
+                            </div>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${typeColors[review.type]}`}>
+                              {typeLabels[review.type]}
+                            </span>
+                          </div>
+
+                          <div className="flex gap-2 pt-3">
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(review)}
+                              className="flex-1 rounded bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void onDeleteReview(review.id)}
+                              className="flex-1 rounded bg-rose-50 px-2 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 transition-colors"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="w-full bg-white rounded-lg shadow p-4 lg:w-[320px] lg:min-w-[320px]">
+          <h2 className="font-semibold text-slate-800 mb-3">
+            {editingId ? "Editar revisión" : "Nueva revisión"}
+          </h2>
+          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3 text-sm">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Fecha
+              </label>
+              <input
+                type="date"
+                className="w-full border rounded px-2 py-1"
+                value={form.date}
+                onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Tipo de revisión
+              </label>
+              <select
+                className="w-full border rounded px-2 py-1"
+                value={form.type}
+                onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value as ReviewType }))}
+              >
+                <option value="semanal">Semanal</option>
+                <option value="mensual">Mensual</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Notas de revisión
+              </label>
+              <textarea
+                className="w-full border rounded px-2 py-1 min-h-[80px]"
+                value={form.notes}
+                onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+                placeholder="Reflexiones, aprendizajes, próximas acciones..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-1.5 rounded bg-slate-100 text-slate-700 text-sm hover:bg-slate-200"
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-1.5 rounded bg-slate-900 text-white text-sm hover:bg-slate-800 disabled:opacity-60"
+              >
+                {isSubmitting ? "..." : (editingId ? "Actualizar" : "Crear")}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const TodayView: React.FC<{
   initialDate: string;
   projects: Project[];
   tasks: Task[];
+  templates: TaskTemplate[];
   onAddTask: (input: {
     title: string;
     date: string;
@@ -684,12 +1219,26 @@ const TodayView: React.FC<{
     isKey: boolean;
   }) => Promise<void>;
   onUpdateTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>;
-}> = ({ initialDate, projects, tasks, onAddTask, onUpdateTaskStatus }) => {
+  onUpdateTask: (taskId: string, input: {
+    title: string;
+    date: string;
+    projectId?: string;
+    isKey: boolean;
+  }) => Promise<void>;
+  onDeleteTask: (taskId: string) => Promise<void>;
+  onSaveTaskAsTemplate: (taskTitle: string) => Promise<void>;
+  onDeleteTaskTemplate: (templateId: string) => Promise<void>;
+}> = ({ initialDate, projects, tasks, templates, onAddTask, onUpdateTaskStatus, onUpdateTask, onDeleteTask, onSaveTaskAsTemplate, onDeleteTaskTemplate }) => {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<string | "">("");
   const [isKey, setIsKey] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editProjectId, setEditProjectId] = useState<string | "">();
+  const [editIsKey, setEditIsKey] = useState(false);
+  const [isEditingSubmitting, setIsEditingSubmitting] = useState(false);
 
   const tasksForDay = useMemo(
     () => tasks.filter((t) => t.date === selectedDate),
@@ -723,6 +1272,41 @@ const TodayView: React.FC<{
     }
   };
 
+  const handleStartEdit = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditTitle(task.title);
+    setEditProjectId(task.projectId || "");
+    setEditIsKey(task.isKey);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTaskId || !editTitle.trim()) return;
+
+    setIsEditingSubmitting(true);
+    try {
+      await onUpdateTask(editingTaskId, {
+        title: editTitle,
+        date: selectedDate,
+        projectId: (editProjectId as string) || undefined,
+        isKey: editIsKey,
+      });
+      setEditingTaskId(null);
+    } finally {
+      setIsEditingSubmitting(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (confirm("¿Estás seguro de que quieres eliminar esta tarea?")) {
+      try {
+        await onDeleteTask(taskId);
+      } catch (err) {
+        alert("Error al eliminar la tarea");
+      }
+    }
+  };
+
   const getProjectName = (id?: string) =>
     projects.find((p) => p.id === id)?.name ?? "Sin proyecto";
   const availableProjects = projects.filter((project) => project.status !== "Archivado");
@@ -752,6 +1336,30 @@ const TodayView: React.FC<{
           </div>
         </div>
 
+        {templates.length > 0 && (
+          <div className="mb-2 p-2 bg-blue-50 rounded border border-blue-200">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              O selecciona una plantilla guardada:
+            </label>
+            <select
+              className="w-full border rounded px-2 py-1 text-sm"
+              onChange={(e) => {
+                if (e.target.value) {
+                  setTitle(e.target.value);
+                  e.target.value = "";
+                }
+              }}
+            >
+              <option value="">— Plantillas de tareas —</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.title}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-2 text-sm">
           <div className="grid gap-2 md:grid-cols-[2fr,1fr]">
             <input
@@ -775,7 +1383,7 @@ const TodayView: React.FC<{
             </select>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <label className="flex items-center gap-1 text-xs text-slate-700">
               <input
                 type="checkbox"
@@ -784,13 +1392,26 @@ const TodayView: React.FC<{
               />
               Es una tarea clave del día
             </label>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-1.5 rounded bg-slate-900 text-white text-xs hover:bg-slate-800 disabled:opacity-60"
-            >
-              {isSubmitting ? "Guardando..." : "Agregar tarea"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (title.trim()) {
+                    void onSaveTaskAsTemplate(title);
+                  }
+                }}
+                className="px-3 py-1.5 rounded bg-green-100 text-green-700 text-xs hover:bg-green-200 border border-green-300"
+              >
+                Guardar como plantilla
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-1.5 rounded bg-slate-900 text-white text-xs hover:bg-slate-800 disabled:opacity-60"
+              >
+                {isSubmitting ? "Guardando..." : "Agregar tarea"}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -806,80 +1427,145 @@ const TodayView: React.FC<{
         ) : (
           <ul className="space-y-2 text-sm">
             {tasksForDay.map((task) => (
-              <li
-                key={task.id}
-                className="border rounded px-2 py-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    {task.isKey && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
-                        CLAVE
+              editingTaskId === task.id ? (
+                <li key={task.id} className="border rounded p-2 bg-blue-50">
+                  <form onSubmit={(e) => void handleSaveEdit(e)} className="space-y-2">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full border rounded px-2 py-1 text-sm"
+                      placeholder="Título de la tarea"
+                    />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <select
+                        value={editProjectId || ""}
+                        onChange={(e) => setEditProjectId(e.target.value)}
+                        className="border rounded px-2 py-1 text-xs"
+                      >
+                        <option value="">Sin proyecto</option>
+                        {projects.filter((p) => p.status !== "Archivado").map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={editIsKey}
+                          onChange={(e) => setEditIsKey(e.target.checked)}
+                        />
+                        Tarea clave
+                      </label>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setEditingTaskId(null)}
+                        className="px-2 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isEditingSubmitting}
+                        className="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {isEditingSubmitting ? "Guardando..." : "Guardar"}
+                      </button>
+                    </div>
+                  </form>
+                </li>
+              ) : (
+                <li
+                  key={task.id}
+                  className="border rounded px-2 py-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 hover:bg-slate-50 group"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {task.isKey && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
+                          CLAVE
+                        </span>
+                      )}
+                      <span
+                        className={
+                          task.status === "Hecha"
+                            ? "line-through text-slate-400"
+                            : "text-slate-800"
+                        }
+                      >
+                        {task.title}
                       </span>
-                    )}
-                    <span
-                      className={
-                        task.status === "Hecha"
-                          ? "line-through text-slate-400"
-                          : "text-slate-800"
-                      }
-                    >
-                      {task.title}
-                    </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {getProjectName(task.projectId)}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {getProjectName(task.projectId)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={task.status}
-                    onChange={(e) => {
-                      void onUpdateTaskStatus(task.id, e.target.value as TaskStatus);
-                    }}
-                    className="border rounded px-2 py-1 text-xs"
-                  >
-                    {statusOptions.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </li>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={task.status}
+                      onChange={(e) => {
+                        void onUpdateTaskStatus(task.id, e.target.value as TaskStatus);
+                      }}
+                      className="border rounded px-2 py-1 text-xs"
+                    >
+                      {statusOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleStartEdit(task)}
+                      className="px-2 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Editar"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={() => void handleDeleteTask(task.id)}
+                      className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Eliminar"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </li>
+              )
             ))}
           </ul>
         )}
       </div>
+
+      {templates.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4 mt-4">
+          <h3 className="font-semibold text-slate-800 mb-2 text-sm">
+            Mis plantillas de tareas ({templates.length})
+          </h3>
+          <div className="space-y-1 text-xs">
+            {templates.map((template) => (
+              <div
+                key={template.id}
+                className="flex items-center justify-between border rounded px-2 py-1 hover:bg-slate-50"
+              >
+                <span className="text-slate-700">{template.title}</span>
+                <button
+                  onClick={() => void onDeleteTaskTemplate(template.id)}
+                  className="px-2 py-0.5 rounded text-red-600 hover:bg-red-100"
+                  title="Eliminar plantilla"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
-const IdeasView: React.FC = () => (
-  <div className="max-w-4xl mx-auto px-4 pb-8">
-    <div className="bg-white rounded-lg shadow p-4">
-      <h2 className="font-semibold text-slate-800 mb-2">Ideas</h2>
-      <p className="text-sm text-slate-600">
-        Aquí más adelante tendrás tu backlog de ideas (negocios, mejoras,
-        automatizaciones). Por ahora, enfócate en Proyectos y Hoy.
-      </p>
-    </div>
-  </div>
-);
-
-const ReviewsView: React.FC = () => (
-  <div className="max-w-4xl mx-auto px-4 pb-8">
-    <div className="bg-white rounded-lg shadow p-4">
-      <h2 className="font-semibold text-slate-800 mb-2">
-        Revisiones semanal / mensual
-      </h2>
-      <p className="text-sm text-slate-600">
-        Aquí luego podrás hacer revisión semanal y mensual: qué avanzaste,
-        qué pausas, y qué entra al TOP 3 de foco.
-      </p>
-    </div>
-  </div>
-);
 
 const getToday = () => new Date().toISOString().slice(0, 10);
 
@@ -930,7 +1616,10 @@ const App: React.FC = () => {
         // Migrar datos locales si es la primera vez de este usuario
         await migrateLocalStorageToSupabase(user.id);
 
-        const remoteData = await fetchPanelData(user.id);
+        const [remoteData, templates] = await Promise.all([
+          fetchPanelData(user.id),
+          fetchTaskTemplates(user.id),
+        ]);
         if (!isMounted) return;
 
         setState((prev) => ({
@@ -938,6 +1627,9 @@ const App: React.FC = () => {
           projects: remoteData.projects,
           tasks: remoteData.tasks,
           dailyLogs: remoteData.dailyLogs,
+          ideas: remoteData.ideas,
+          reviews: remoteData.reviews,
+          taskTemplates: templates,
         }));
         setSyncError(null);
       } catch (error) {
@@ -1153,6 +1845,209 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateTask = async (
+    taskId: string,
+    input: { title: string; date: string; projectId?: string; isKey: boolean }
+  ) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    try {
+      const updatedTask = await updateTask(taskId, input, user.id);
+      setState((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task) =>
+          task.id === taskId ? updatedTask : task
+        ),
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo actualizar la tarea en Supabase."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    try {
+      await deleteTask(taskId, user.id);
+      setState((prev) => ({
+        ...prev,
+        tasks: prev.tasks.filter((task) => task.id !== taskId),
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo eliminar la tarea en Supabase."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleSaveTaskAsTemplate = async (taskTitle: string) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    try {
+      const newTemplate = await createTaskTemplate(taskTitle, undefined, user.id);
+      setState((prev) => ({
+        ...prev,
+        taskTemplates: [newTemplate, ...prev.taskTemplates],
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "No se pudo guardar la plantilla en Supabase."
+      );
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleDeleteTaskTemplate = async (templateId: string) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    if (confirm("¿Estás seguro de que quieres eliminar esta plantilla?")) {
+      try {
+        await deleteTaskTemplate(templateId, user.id);
+        setState((prev) => ({
+          ...prev,
+          taskTemplates: prev.taskTemplates.filter((t) => t.id !== templateId),
+        }));
+        setSyncError(null);
+      } catch (error) {
+        const message = getErrorMessage(
+          error,
+          "No se pudo eliminar la plantilla en Supabase."
+        );
+        setSyncError(message);
+        alert(message);
+        throw error;
+      }
+    }
+  };
+
+  const handleAddIdea = async (input: Omit<Idea, "id" | "userId" | "createdAt">) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    try {
+      const idea = await createIdea(input, user.id);
+      setState((prev) => ({
+        ...prev,
+        ideas: [idea, ...prev.ideas],
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(error, "No se pudo crear la idea en Supabase.");
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleUpdateIdea = async (ideaId: string, input: Omit<Idea, "id" | "userId" | "createdAt">) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    try {
+      const updatedIdea = await updateIdea(ideaId, input, user.id);
+      setState((prev) => ({
+        ...prev,
+        ideas: prev.ideas.map((idea) => (idea.id === ideaId ? updatedIdea : idea)),
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(error, "No se pudo actualizar la idea en Supabase.");
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleDeleteIdea = async (ideaId: string) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    if (confirm("¿Estás seguro de que quieres eliminar esta idea?")) {
+      try {
+        await deleteIdea(ideaId, user.id);
+        setState((prev) => ({
+          ...prev,
+          ideas: prev.ideas.filter((idea) => idea.id !== ideaId),
+        }));
+        setSyncError(null);
+      } catch (error) {
+        const message = getErrorMessage(error, "No se pudo eliminar la idea en Supabase.");
+        setSyncError(message);
+        alert(message);
+        throw error;
+      }
+    }
+  };
+
+  const handleAddReview = async (input: Omit<Review, "id" | "userId" | "createdAt">) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    try {
+      const review = await createReview(input, user.id);
+      setState((prev) => ({
+        ...prev,
+        reviews: [review, ...prev.reviews],
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(error, "No se pudo crear la revisión en Supabase.");
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleUpdateReview = async (reviewId: string, input: Omit<Review, "id" | "userId" | "createdAt">) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    try {
+      const updatedReview = await updateReview(reviewId, input, user.id);
+      setState((prev) => ({
+        ...prev,
+        reviews: prev.reviews.map((review) => (review.id === reviewId ? updatedReview : review)),
+      }));
+      setSyncError(null);
+    } catch (error) {
+      const message = getErrorMessage(error, "No se pudo actualizar la revisión en Supabase.");
+      setSyncError(message);
+      alert(message);
+      throw error;
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!user) throw new Error("Usuario no autenticado");
+
+    if (confirm("¿Estás seguro de que quieres eliminar esta revisión?")) {
+      try {
+        await deleteReview(reviewId, user.id);
+        setState((prev) => ({
+          ...prev,
+          reviews: prev.reviews.filter((review) => review.id !== reviewId),
+        }));
+        setSyncError(null);
+      } catch (error) {
+        const message = getErrorMessage(error, "No se pudo eliminar la revisión en Supabase.");
+        setSyncError(message);
+        alert(message);
+        throw error;
+      }
+    }
+  };
+
   // Mostrar página de login si no está autenticado
   if (authLoading) {
     return (
@@ -1199,6 +2094,7 @@ const App: React.FC = () => {
             {currentView === "projects" && (
               <ProjectsView
                 projects={state.projects}
+                tasks={state.tasks}
                 dailyLogs={state.dailyLogs}
                 today={today}
                 userId={user!.id}
@@ -1215,12 +2111,32 @@ const App: React.FC = () => {
                 initialDate={today}
                 projects={state.projects}
                 tasks={state.tasks}
+                templates={state.taskTemplates}
                 onAddTask={handleAddTask}
                 onUpdateTaskStatus={handleUpdateTaskStatus}
+                onUpdateTask={handleUpdateTask}
+                onDeleteTask={handleDeleteTask}
+                onSaveTaskAsTemplate={handleSaveTaskAsTemplate}
+                onDeleteTaskTemplate={handleDeleteTaskTemplate}
               />
             )}
-            {currentView === "ideas" && <IdeasView />}
-            {currentView === "reviews" && <ReviewsView />}
+            {currentView === "ideas" && (
+              <IdeasView
+                ideas={state.ideas}
+                projects={state.projects}
+                onAddIdea={handleAddIdea}
+                onUpdateIdea={handleUpdateIdea}
+                onDeleteIdea={handleDeleteIdea}
+              />
+            )}
+            {currentView === "reviews" && (
+              <ReviewsView
+                reviews={state.reviews}
+                onAddReview={handleAddReview}
+                onUpdateReview={handleUpdateReview}
+                onDeleteReview={handleDeleteReview}
+              />
+            )}
           </>
         )}
       </main>

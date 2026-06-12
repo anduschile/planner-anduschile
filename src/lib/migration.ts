@@ -83,6 +83,7 @@ function parseLocalState(raw: string | null): AppState | null {
       dailyLogs,
       ideas: [],
       reviews: [],
+      taskTemplates: [],
     };
   } catch (error) {
     console.error("[migration] error parsing localStorage payload:", error);

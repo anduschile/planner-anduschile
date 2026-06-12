@@ -33,6 +33,7 @@ export function emptyState(): AppState {
     ideas: [],
     dailyLogs: [],
     reviews: [],
+    taskTemplates: [],
   };
 }
 

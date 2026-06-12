@@ -29,8 +29,17 @@ export interface Task {
   status: TaskStatus;
 }
 
+export interface TaskTemplate {
+  id: string;
+  userId: string;
+  title: string;
+  area?: string;
+  createdAt: string;
+}
+
 export interface Idea {
   id: string;
+  userId: string;
   title: string;
   description: string;
   impact: number;
@@ -54,9 +63,11 @@ export interface DailyLog {
 
 export interface Review {
   id: string;
+  userId: string;
   date: string;
   type: ReviewType;
   notes: string;
+  createdAt: string;
 }
 
 export interface AppState {
@@ -65,6 +76,7 @@ export interface AppState {
   ideas: Idea[];
   dailyLogs: DailyLog[];
   reviews: Review[];
+  taskTemplates: TaskTemplate[];
 }
 
 export interface NewProjectInput {
